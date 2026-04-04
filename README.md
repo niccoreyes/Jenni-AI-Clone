@@ -27,6 +27,11 @@ pnpm --filter @workspace/api-server dev
 
 The server requires `PORT` to be set. The sample Docker setup uses `PORT=3000` by default.
 
+The API is mounted under `/api`, and the root path `/` now returns a simple running status response. For example:
+
+- `http://localhost:3000/`
+- `http://localhost:3000/api/healthz`
+
 ### 3. Build everything
 
 To typecheck and build all workspace packages:

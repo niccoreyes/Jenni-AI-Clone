@@ -29,6 +29,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/", (_req, res) => {
+  res.json({
+    status: "Jenny AI Clone API is running",
+    message: "Use /api/healthz or other API endpoints under /api",
+  });
+});
+
 app.use("/api", router);
 
 export default app;
