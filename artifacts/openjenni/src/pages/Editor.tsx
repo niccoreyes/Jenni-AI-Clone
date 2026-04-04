@@ -180,14 +180,40 @@ export default function Editor() {
     }
     if (e.ctrlKey && e.key === "j") {
       e.preventDefault();
+
+      // Prevent multiple simultaneous autocomplete requests
+      if (autocomplete.isPending) {
+        return;
+      }
+
       autocomplete.mutate(
         { data: { currentText: content, documentId: docId, citationStyle } },
         {
           onSuccess: (result) => {
             setGhostText(" " + result.suggestion);
           },
-          onError: () => {
-            toast({ title: "Autocomplete failed", description: "Configure your API key in Settings for AI features", variant: "destructive" });
+          onError: (error) => {
+            console.error("Autocomplete error:", error);
+            const errorMessage = error?.message || "Unknown error";
+            if (errorMessage.includes("rate limit")) {
+              toast({
+                title: "Rate limit exceeded",
+                description: "Please wait a moment before trying again",
+                variant: "destructive"
+              });
+            } else if (errorMessage.includes("authentication")) {
+              toast({
+                title: "Authentication failed",
+                description: "Please check your API key in Settings",
+                variant: "destructive"
+              });
+            } else {
+              toast({
+                title: "Autocomplete failed",
+                description: errorMessage,
+                variant: "destructive"
+              });
+            }
           }
         }
       );

@@ -693,7 +693,7 @@ components:
           type: integer
         provider:
           type: string
-          enum: [openai, anthropic, moonshot, custom]
+          enum: [openai, anthropic, moonshot, openrouter, custom]
         apiKey:
           type: string
           nullable: true
@@ -740,7 +740,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [openai, anthropic, moonshot, custom]
+          enum: [openai, anthropic, moonshot, openrouter, custom]
         apiKey:
           type: string
           nullable: true

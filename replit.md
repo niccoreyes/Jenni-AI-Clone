@@ -54,13 +54,14 @@ OpenJenni is an open-source, self-hosted academic AI writing assistant — a BYO
 - **Citation Manager** — add/format citations in APA7, MLA9, Chicago, IEEE, Harvard
 - **PDF Library** — upload and manage research papers
 - **Outline Generator** — structured outline from topic + thesis
-- **BYOK** — bring your own OpenAI, Anthropic, Moonshot, or custom API key
+- **BYOK** — bring your own OpenAI, Anthropic, Moonshot, OpenRouter, or custom API key
 - **Auto-save** — debounced save every 2s after typing stops
 
 ## AI Providers Supported
-- OpenAI (GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo)
-- Anthropic (Claude 3.5 Sonnet, Claude 3 Haiku, Claude 3 Opus)
+- OpenAI (GPT-5.2, GPT-5, GPT-5-mini, GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo)
+- Anthropic (Claude Sonnet 4.6, Claude Opus 4.6, Claude Haiku 4.5, Claude 3.5 Sonnet)
 - Moonshot AI / Kimi (kimi-k2, kimi-latest)
+- OpenRouter (Claude 3.5 Sonnet, GPT-4o, GPT-4o-mini, Claude 3 Haiku, Llama 3.1 405B, Gemini Pro 1.5, Qwen3.6 Plus FREE, Step 3.5 Flash FREE, Claude Sonnet 4.6, Claude Opus 4.6, Gemini 3 Flash, DeepSeek V3.2, and more)
 - Custom endpoint (any OpenAI-compatible API)
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.

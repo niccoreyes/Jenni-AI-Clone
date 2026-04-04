@@ -26,6 +26,7 @@ function buildClient(settings: { provider: string; apiKey?: string | null; baseU
     switch (provider) {
       case "anthropic": endpoint = "https://api.anthropic.com/v1"; break;
       case "moonshot": endpoint = "https://api.moonshot.cn/v1"; break;
+      case "openrouter": endpoint = "https://openrouter.ai/api/v1"; break;
       default: endpoint = "https://api.openai.com/v1";
     }
   }
@@ -38,34 +39,76 @@ async function callOpenAICompat(
   apiKey: string | null | undefined,
   model: string,
   messages: Array<{ role: string; content: string }>,
-  temperature: number = 0.7
+  temperature: number = 0.7,
+  maxRetries: number = 3
 ): Promise<string> {
   if (!apiKey) {
     return generateFallbackResponse(messages[messages.length - 1]?.content ?? "");
   }
 
-  const response = await fetch(`${endpoint}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature,
-      max_tokens: 1024,
-    }),
-  });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          temperature,
+          max_tokens: 1024,
+        }),
+      });
+
+      if (response.ok) {
+        const data = (await response.json()) as {
+          choices: Array<{ message: { content: string } }>;
+        };
+        return data.choices[0]?.message?.content ?? "";
+      }
+
+      // Handle rate limiting (429) with exponential backoff
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : Math.pow(2, attempt) * 1000; // exponential backoff
+
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        } else {
+          throw new Error(`AI API rate limit exceeded. Please wait before trying again.`);
+        }
+      }
+
+      // Handle other errors
+      if (response.status === 401) {
+        throw new Error(`AI API authentication failed. Please check your API key.`);
+      } else if (response.status === 403) {
+        throw new Error(`AI API access forbidden. Please check your API key permissions.`);
+      } else if (response.status >= 500) {
+        // Retry server errors
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+          continue;
+        }
+        throw new Error(`AI API server error: ${response.status} ${response.statusText}`);
+      } else {
+        throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      lastError = error as Error;
+      if (attempt < maxRetries && (error as Error).message.includes('rate limit')) {
+        continue;
+      }
+      break;
+    }
   }
 
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>;
-  };
-  return data.choices[0]?.message?.content ?? "";
+  throw lastError || new Error('AI API request failed after retries');
 }
 
 function generateFallbackResponse(prompt: string): string {
@@ -87,7 +130,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
-  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-4o" });
+  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-5.2" });
 
   const systemPrompt = `You are an academic writing assistant. Continue the user's text with 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text, no preamble.`;
 
@@ -120,7 +163,7 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
-  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-4o" });
+  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-5.2" });
 
   const modeInstructions: Record<string, string> = {
     simplify: "Rewrite this text in simpler language, reducing jargon while preserving meaning.",
@@ -160,7 +203,7 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
-  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-4o" });
+  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-5.2" });
 
   const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
 
@@ -188,7 +231,7 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
-  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-4o" });
+  const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-5.2" });
 
   const systemPrompt = `You are an academic writing expert. Generate a structured outline for a ${parsed.data.documentType ?? "research_paper"} on the given topic. Return valid JSON only in this format:
 {

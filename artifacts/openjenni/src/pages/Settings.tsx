@@ -14,9 +14,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-  anthropic: ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
+  openai: ["gpt-5.2", "gpt-5", "gpt-5-mini", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
+  anthropic: ["claude-sonnet-4-6-20250827", "claude-opus-4-6-20250826", "claude-haiku-4-5-20251001", "claude-3-5-sonnet-20241022", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
   moonshot: ["kimi-k2", "kimi-latest", "moonshot-v1-8k"],
+  openrouter: [
+    // Free models
+    "qwen/qwen3.6-plus:free",
+    "stepfun/step-3.5-flash:free",
+    // Latest high-performance models
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-opus-4.6",
+    "google/gemini-3-flash-preview",
+    "deepseek/deepseek-v3.2",
+    "xiaomi/mimo-v2-pro",
+    "minimax/minimax-m2.7",
+    "x-ai/grok-4.20",
+    "x-ai/grok-4.20-multi-agent",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-26b-a4b-it",
+    "z-ai/glm-5v-turbo",
+    "arcee-ai/trinity-large-thinking",
+    // Popular existing models
+    "anthropic/claude-3.5-sonnet",
+    "openai/gpt-4o",
+    "openai/gpt-4o-mini",
+    "anthropic/claude-3-haiku",
+    "meta-llama/llama-3.1-405b-instruct",
+    "google/gemini-pro-1.5"
+  ],
   custom: ["custom-model"],
 };
 
@@ -24,6 +49,7 @@ const PROVIDER_ENDPOINTS: Record<string, string> = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com/v1",
   moonshot: "https://api.moonshot.cn/v1",
+  openrouter: "https://openrouter.ai/api/v1",
   custom: "",
 };
 
@@ -41,7 +67,7 @@ export default function Settings() {
     provider: "openai",
     apiKey: "",
     baseUrl: "",
-    model: "gpt-4o",
+    model: "gpt-5.2",
     defaultCitationStyle: "APA7",
     language: "en-US",
     userRole: "graduate",
@@ -92,7 +118,7 @@ export default function Settings() {
   const handleSave = () => {
     updateSettings.mutate({
       data: {
-        provider: form.provider as "openai" | "anthropic" | "moonshot" | "custom",
+        provider: form.provider as "openai" | "anthropic" | "moonshot" | "openrouter" | "custom",
         apiKey: form.apiKey || null,
         baseUrl: form.baseUrl || null,
         model: form.model,
@@ -145,6 +171,7 @@ export default function Settings() {
                   <SelectItem value="openai">OpenAI (GPT-4)</SelectItem>
                   <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
                   <SelectItem value="moonshot">Moonshot AI (Kimi)</SelectItem>
+                  <SelectItem value="openrouter">OpenRouter (Multi-Provider)</SelectItem>
                   <SelectItem value="custom">Custom Endpoint</SelectItem>
                 </SelectContent>
               </Select>

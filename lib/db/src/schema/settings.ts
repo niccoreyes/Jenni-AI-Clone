@@ -7,7 +7,7 @@ export const settingsTable = pgTable("settings", {
   provider: text("provider").notNull().default("openai"),
   apiKey: text("api_key"),
   baseUrl: text("base_url"),
-  model: text("model").notNull().default("gpt-4o"),
+  model: text("model").notNull().default("gpt-5.2"),
   defaultCitationStyle: text("default_citation_style").notNull().default("APA7"),
   language: text("language").notNull().default("en-US"),
   userRole: text("user_role").notNull().default("graduate"),
