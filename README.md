@@ -48,40 +48,142 @@ pnpm run typecheck
 
 ## Docker
 
-A simple Docker setup is included for the API server.
+The project supports multiple Docker configurations for different workflows.
 
-### Build the Docker image
+### Docker Images
+
+- **Dockerfile**: API server image based on Node.js 20-slim, includes all workspace libraries and the API server
+- **Dockerfile.frontend**: OpenJenni frontend image based on Node.js 20-slim, includes ARM64 support for Apple Silicon
+
+### Development Mode: PostgreSQL in Docker + Local Development
+
+For the best development experience, run PostgreSQL in Docker while running the API and frontend locally via pnpm for hot-reloading.
+
+#### Quick Start (Recommended)
+
+Run a single command to start everything:
 
 ```bash
-docker build -t jenny-ai-clone-api .
+./scripts/dev.sh
 ```
 
-### Run in Docker
+This script automatically:
+- Checks Docker is running
+- Starts PostgreSQL in Docker with persistent volume
+- Waits for PostgreSQL to be ready
+- Starts the API server (with hot-reload)
+- Starts the frontend (with hot-reload)
+- Shows you all the service URLs and logs
+- Cleans up gracefully on exit (Ctrl+C)
+
+#### Manual Setup
+
+If you prefer to run services manually:
+
+1. Start PostgreSQL in Docker with persistent volume:
 
 ```bash
-docker run --rm -p 3000:3000 -e PORT=3000 jenny-ai-clone-api
+docker compose up postgres -d
 ```
 
-### Docker Compose
+This starts a PostgreSQL 15 database accessible at `postgresql://postgres:postgres@localhost:5432/jenny_ai_clone` with persistent data storage.
+
+2. In a new terminal, run the API server (applies database schema and starts the server):
+
+```bash
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone" pnpm --filter @workspace/api-server dev
+```
+
+3. In another terminal, run the frontend:
+
+```bash
+API_SERVER=http://localhost:3001 pnpm --filter @workspace/openjenni dev
+```
+
+The frontend will be available at `http://localhost:3000` and automatically proxy `/api` requests to `http://localhost:3001`.
+
+#### Benefits
+
+- Fast hot-reload development for both API and frontend
+- Persistent PostgreSQL database between dev sessions
+- Easier debugging with local execution
+- No container overhead for rapid iteration
+
+### Production Mode: Full Docker Compose
+
+For production or complete containerization, use the full Docker Compose stack:
 
 ```bash
 docker compose up --build
 ```
 
 This starts:
-- the frontend at `http://localhost:3000`
-- the backend API at `http://localhost:3001`
-- a local PostgreSQL database
+- **frontend** at `http://localhost:3000` (port 3000)
+- **api-server** at `http://localhost:3001` (port 3001)
+- **postgres** database at `localhost:5432`
 
-The frontend is configured to proxy `/api` requests to the backend service.
+The services are configured as follows:
+- Frontend proxies `/api` requests to the backend at `http://api-server:3001`
+- API server connects to PostgreSQL via `postgresql://postgres:postgres@postgres:5432/jenny_ai_clone`
+- PostgreSQL data persists in the named volume `postgres_data`
 
-The Compose stack also starts a local PostgreSQL service and configures the API server with:
+#### Single Service Builds
+
+To build individual images:
 
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@postgres:5432/jenny_ai_clone
+# API server only
+docker build -t jenny-ai-clone-api .
+
+# Frontend only
+docker build -t jenny-ai-clone-frontend -f Dockerfile.frontend .
 ```
 
-> Note: Docker Compose uses the built image and runs the `pnpm --filter @workspace/api-server start` command, so it relies on the image's compiled output rather than the workspace dev flow.
+#### Run Individual Containers
+
+```bash
+# API server with local PostgreSQL
+docker run --rm -p 3001:3001 \
+  -e PORT=3001 \
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/jenny_ai_clone \
+  jenny-ai-clone-api
+
+# Frontend with local API server
+docker run --rm -p 3000:3000 \
+  -e API_SERVER=http://localhost:3001 \
+  jenny-ai-clone-frontend
+```
+
+### Database Persistence
+
+The Docker PostgreSQL service automatically creates and maintains a named volume (`postgres_data`) that persists across container restarts:
+
+```bash
+# View volumes
+docker volume ls | grep postgres_data
+
+# Inspect volume
+docker volume inspect jenny-ai-clone_postgres_data
+
+# Remove volume (WARNING: deletes all data)
+docker volume rm jenny-ai-clone_postgres_data
+```
+
+#### Stop and Restart Containers
+
+```bash
+# Stop all services
+docker compose down
+
+# Stop but keep volumes (preserves database)
+docker compose down --volumes  # ⚠️ removes volumes
+
+# Just stop PostgreSQL, keeping volumes
+docker compose stop postgres
+
+# Restart PostgreSQL (all data persists)
+docker compose start postgres
+```
 
 ## Repository structure
 
