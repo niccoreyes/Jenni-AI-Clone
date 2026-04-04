@@ -7,8 +7,34 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 Jenny AI Clone - Development Mode${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+# Parse command line arguments
+BUILD_MODE=false
+for arg in "$@"; do
+  case $arg in
+    --build|-b)
+      BUILD_MODE=true
+      shift
+      ;;
+    --help|-h)
+      echo -e "${BLUE}Usage: ./scripts/dev.sh [options]${NC}"
+      echo -e ""
+      echo -e "Options:"
+      echo -e "  --build, -b    Build before starting (production mode)"
+      echo -e "  --help, -h     Show this help message"
+      echo -e ""
+      echo -e "Default: Development mode (hot-reload enabled)"
+      exit 0
+      ;;
+  esac
+done
+
+if [ "$BUILD_MODE" = true ]; then
+  echo -e "${BLUE}🚀 Jenny AI Clone - Build Mode${NC}"
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+else
+  echo -e "${BLUE}🚀 Jenny AI Clone - Development Mode${NC}"
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+fi
 
 # Function to prompt user
 prompt_install() {
@@ -185,9 +211,21 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Start API Server
-echo -e "${BLUE}Starting API Server...${NC}"
-pnpm --filter @workspace/api-server dev > >(tee "$TEMP_DIR/api.log") 2>&1 &
-API_PID=$!
+if [ "$BUILD_MODE" = true ]; then
+  echo -e "${BLUE}Building and Starting API Server...${NC}"
+  pnpm --filter @workspace/api-server build > >(tee "$TEMP_DIR/api.log") 2>&1
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ API Server build failed. Error:${NC}"
+    cat "$TEMP_DIR/api.log"
+    exit 1
+  fi
+  pnpm --filter @workspace/api-server start > >(tee "$TEMP_DIR/api.log") 2>&1 &
+  API_PID=$!
+else
+  echo -e "${BLUE}Starting API Server (dev mode)...${NC}"
+  pnpm --filter @workspace/api-server dev > >(tee "$TEMP_DIR/api.log") 2>&1 &
+  API_PID=$!
+fi
 echo -e "${GREEN}✓ API Server started (PID: $API_PID)${NC}"
 
 # Wait a moment for API to start and check if it's still running
@@ -202,9 +240,22 @@ fi
 export API_SERVER="http://localhost:3001"
 export BASE_PATH="/"
 export PORT=3000
-echo -e "${BLUE}Starting Frontend...${NC}"
-pnpm --filter @workspace/openjenni dev > >(tee "$TEMP_DIR/frontend.log") 2>&1 &
-FRONTEND_PID=$!
+if [ "$BUILD_MODE" = true ]; then
+  echo -e "${BLUE}Building and Starting Frontend (production)...${NC}"
+  pnpm --filter @workspace/openjenni build > >(tee "$TEMP_DIR/frontend.log") 2>&1
+  if [ $? -ne 0 ]; then
+    echo -e "${RED}❌ Frontend build failed. Error:${NC}"
+    cat "$TEMP_DIR/frontend.log"
+    kill $API_PID 2>/dev/null || true
+    exit 1
+  fi
+  pnpm --filter @workspace/openjenni serve > >(tee "$TEMP_DIR/frontend.log") 2>&1 &
+  FRONTEND_PID=$!
+else
+  echo -e "${BLUE}Starting Frontend (dev mode with hot-reload)...${NC}"
+  pnpm --filter @workspace/openjenni dev > >(tee "$TEMP_DIR/frontend.log") 2>&1 &
+  FRONTEND_PID=$!
+fi
 echo -e "${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}"
 
 # Wait a moment for Frontend to start and check if it's still running
@@ -217,9 +268,15 @@ if ! kill -0 $FRONTEND_PID 2>/dev/null; then
 fi
 
 echo ""
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}✨ All services are running!${NC}"
-echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+if [ "$BUILD_MODE" = true ]; then
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${GREEN}✨ All services running in production mode!${NC}"
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+else
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${GREEN}✨ All services are running in dev mode!${NC}"
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+fi
 echo -e ""
 echo -e "  ${GREEN}Frontend:${NC}   http://localhost:3000"
 echo -e "  ${GREEN}API Server:${NC} http://localhost:3001"
