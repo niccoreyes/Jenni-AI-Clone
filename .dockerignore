@@ -1,0 +1,14 @@
+node_modules
+dist
+tmp
+out-tsc
+*.tsbuildinfo
+.git
+.dockerignore
+Dockerfile
+docker-compose.yml
+npm-debug.log
+yarn-error.log
+.replitcache
+.cache
+.local
