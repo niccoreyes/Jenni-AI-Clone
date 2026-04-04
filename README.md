@@ -65,6 +65,14 @@ docker compose up --build
 
 This starts the API server on `http://localhost:3000` using the `PORT` environment variable.
 
+The Compose stack also starts a local PostgreSQL service and configures the API server with:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@postgres:5432/jenny_ai_clone
+```
+
+> Note: Docker Compose uses the built image and runs the `pnpm --filter @workspace/api-server start` command, so it relies on the image's compiled output rather than the workspace dev flow.
+
 ## Repository structure
 
 - `artifacts/api-server`: Express API server package
