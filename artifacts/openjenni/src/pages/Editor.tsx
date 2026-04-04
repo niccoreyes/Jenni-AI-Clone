@@ -70,6 +70,17 @@ export default function Editor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef(content);
+  const [ghostPosition, setGhostPosition] = useState(0);
+  const hasInitializedRef = useRef(false);
+
+  // Reset initialization flag when document ID changes
+  useEffect(() => {
+    hasInitializedRef.current = false;
+    setContent("");
+    setTitle("");
+    setGhostText("");
+  }, [docId]);
 
   const { data: doc, isLoading } = useGetDocument(docId, {
     query: { enabled: !!docId, queryKey: getGetDocumentQueryKey(docId) }
@@ -84,12 +95,17 @@ export default function Editor() {
   });
 
   useEffect(() => {
-    if (doc) {
+    if (doc && !hasInitializedRef.current) {
       setContent(doc.content);
       setTitle(doc.title);
       setCitationStyle(doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard");
+      hasInitializedRef.current = true;
     }
   }, [doc]);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -168,7 +184,10 @@ export default function Editor() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab" && ghostText) {
       e.preventDefault();
-      const newContent = content + ghostText;
+      // Insert ghost text at the stored position, not at the end
+      const before = content.slice(0, ghostPosition);
+      const after = content.slice(ghostPosition);
+      const newContent = before + ghostText + after;
       setContent(newContent);
       setGhostText("");
       scheduleSave(newContent, title, citationStyle);
@@ -186,11 +205,22 @@ export default function Editor() {
         return;
       }
 
+      // Clear any existing ghost text and capture cursor position
+      setGhostText("");
+      const cursorPos = e.currentTarget.selectionStart;
+      setGhostPosition(cursorPos);
+
+      // Use contentRef.current to get the latest content (not stale closure)
+      const currentContent = contentRef.current;
+
       autocomplete.mutate(
-        { data: { currentText: content, documentId: docId, citationStyle } },
+        { data: { currentText: currentContent, documentId: docId, citationStyle } },
         {
           onSuccess: (result) => {
-            setGhostText(" " + result.suggestion);
+            // Only show ghost text if content hasn't changed since request started
+            if (contentRef.current === currentContent) {
+              setGhostText(result.suggestion);
+            }
           },
           onError: (error) => {
             console.error("Autocomplete error:", error);
@@ -458,10 +488,11 @@ export default function Editor() {
                   color: "transparent",
                 }}
               >
-                {content}
+                {content.slice(0, ghostPosition)}
                 <span style={{ color: "hsl(var(--muted-foreground) / 0.5)", fontStyle: "italic" }}>
                   {ghostText}
                 </span>
+                {content.slice(ghostPosition)}
               </div>
             )}
           </div>
