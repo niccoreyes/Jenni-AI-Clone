@@ -76,6 +76,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.147",
-    "ai": "^6.0.145"
+    "ai": "^6.0.145",
+    "react-markdown": "^10.1.0"
   }
 }
