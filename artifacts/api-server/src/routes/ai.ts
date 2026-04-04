@@ -132,9 +132,10 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   const settings = await getSettings();
   const { endpoint, apiKey, model } = buildClient(settings ?? { provider: "openai", model: "gpt-5.2" });
 
-  const systemPrompt = `You are an academic writing assistant. Continue the user's text with 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text, no preamble.`;
+  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
 
   const lastChunk = parsed.data.currentText.slice(-1000);
+  const lastSentence = parsed.data.currentText.split(/[.!?;\n]+/).pop() || '';
 
   let suggestion = "";
   if (apiKey) {
@@ -144,10 +145,31 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
       model,
       [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Continue this text:\n${lastChunk}` },
+        { role: "user", content: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:` },
       ],
       0.3
     );
+    
+    // Post-process: Remove any repetition of the user's last sentence
+    console.log('[DEBUG] lastSentence:', JSON.stringify(lastSentence));
+    console.log('[DEBUG] suggestion before:', JSON.stringify(suggestion));
+    if (lastSentence && suggestion.toLowerCase().includes(lastSentence.toLowerCase().trim())) {
+      const regex = new RegExp(lastSentence.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      suggestion = suggestion.replace(regex, '').trim();
+      console.log('[DEBUG] suggestion after dedup:', JSON.stringify(suggestion));
+    }
+    
+    // Remove common AI preamble patterns
+    suggestion = suggestion
+      .replace(/^(here|this|the)\s+(text|passage|sentence|paragraph)\s+(is|shows|demonstrates|illustrates|continues)/i, '')
+      .replace(/^(continuing|following|above)\s+(from|where)\s+(you|the)\s+(left|stopped|ended)/i, '')
+      .trim();
+
+    // Safeguard: if post-processing emptied the suggestion, use a fallback
+    if (!suggestion) {
+      console.log('[DEBUG] Suggestion was emptied by post-processing, using fallback');
+      suggestion = "This analysis reveals several important patterns that warrant further investigation.";
+    }
   } else {
     suggestion = "This analysis reveals several important patterns that warrant further investigation, particularly in relation to the broader theoretical framework established in prior research.";
   }
