@@ -322,8 +322,10 @@ export default function Editor() {
         stopAutocomplete();
       }
       // Insert ghost text at the stored position, not at the end
-      const before = content.slice(0, ghostPosition);
+      const beforeRaw = content.slice(0, ghostPosition);
       const after = content.slice(ghostPosition);
+      // Trim trailing whitespace from before to prevent double spaces when user already typed a space
+      const before = beforeRaw.replace(/\s+$/, "");
       const newContent = before + ghostText + after;
       setContent(newContent);
       setGhostText("");
