@@ -68,7 +68,12 @@ docker run --rm -p 3000:3000 -e PORT=3000 jenny-ai-clone-api
 docker compose up --build
 ```
 
-This starts the API server on `http://localhost:3000` using the `PORT` environment variable.
+This starts:
+- the frontend at `http://localhost:3000`
+- the backend API at `http://localhost:3001`
+- a local PostgreSQL database
+
+The frontend is configured to proxy `/api` requests to the backend service.
 
 The Compose stack also starts a local PostgreSQL service and configures the API server with:
 

@@ -4,13 +4,27 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3000:3000'
+      - '3001:3001'
     environment:
-      - PORT=3000
+      - PORT=3001
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/jenny_ai_clone
     depends_on:
       - postgres
-    command: ["pnpm", "--filter", "@workspace/api-server", "start"]
+    command: ["sh", "./scripts/start-api.sh"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - '3000:3000'
+    environment:
+      - PORT=3000
+      - BASE_PATH=/
+      - API_SERVER=http://api-server:3001
+    depends_on:
+      - api-server
+    command: ["pnpm", "--filter", "@workspace/openjenni", "dev"]
 
   postgres:
     image: postgres:15-alpine
@@ -21,8 +35,13 @@ services:
       POSTGRES_DB: jenny_ai_clone
     ports:
       - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  postgres_data:

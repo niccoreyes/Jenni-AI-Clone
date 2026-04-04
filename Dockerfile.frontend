@@ -1,0 +1,27 @@
+# Dockerfile for the OpenJenni frontend
+FROM node:20-slim
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY .npmrc package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
+COPY scripts/ scripts/
+COPY lib/api-spec/ lib/api-spec/
+COPY lib/api-client-react/ lib/api-client-react/
+COPY lib/api-zod/ lib/api-zod/
+COPY lib/db/ lib/db/
+COPY artifacts/openjenni/ artifacts/openjenni/
+
+# Remove Linux ARM64 exclusions from workspace config (needed for Docker on Apple Silicon)
+# These are excluded for Replit's linux-x64 environment but needed for Docker ARM64
+RUN sed -i 's/"rollup>@rollup\/rollup-linux-arm64-gnu": "-"/# "rollup>@rollup\/rollup-linux-arm64-gnu": "-"/' pnpm-workspace.yaml && \
+    sed -i 's/"lightningcss>lightningcss-linux-arm64-gnu": "-"/# "lightningcss>lightningcss-linux-arm64-gnu": "-"/' pnpm-workspace.yaml && \
+    sed -i 's/"@tailwindcss\/oxide>@tailwindcss\/oxide-linux-arm64-gnu": "-"/# "@tailwindcss\/oxide>@tailwindcss\/oxide-linux-arm64-gnu": "-"/' pnpm-workspace.yaml
+
+# Install dependencies - force to fetch platform-specific binaries for Linux container
+RUN pnpm install --force
+
+EXPOSE 3000
+
+CMD ["pnpm", "--filter", "@workspace/openjenni", "dev"]

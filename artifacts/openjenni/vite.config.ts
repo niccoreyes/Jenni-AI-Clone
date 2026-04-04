@@ -66,6 +66,13 @@ export default defineConfig({
       strict: true,
       deny: ["**/.*"],
     },
+    proxy: {
+      "/api": {
+        target: process.env.API_SERVER ?? "http://localhost:3001",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   preview: {
     port,
