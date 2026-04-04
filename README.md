@@ -5,34 +5,89 @@ Monorepo for the Jenny AI Clone project. This repository currently includes:
 - `lib`: shared workspace packages used by the server and other packages
 - `scripts`: workspace tooling and utilities
 
+## Prerequisites
+
+Before getting started, ensure you have the following installed:
+
+- **Node.js** (v18 or later) - [Download](https://nodejs.org/)
+- **Docker & Docker Compose** - [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
+- **pnpm** (v8 or later) - Will be installed automatically via npm if not available
+- **macOS users**: Requires command-line tools for optional dependencies on Apple Silicon:
+  ```bash
+  # If you encounter rollup or other native module errors, run:
+  npm install @rollup/rollup-darwin-arm64 -g
+  ```
+
+The `dev.sh` script will check for all dependencies and prompt you to install any missing ones.
+
 ## Quick start
 
 ### 1. Install dependencies
 
-Make sure `pnpm` is installed and available.
-
-```bash
-corepack enable
-corepack prepare pnpm@latest --activate
-pnpm install
-```
-
-### 2. Run the API server locally
-
 From the repository root:
 
 ```bash
-pnpm --filter @workspace/api-server dev
+pnpm install
 ```
 
-The server requires `PORT` to be set. The sample Docker setup uses `PORT=3000` by default.
+### 2. Run development mode (Recommended for development)
 
-The API is mounted under `/api`, and the root path `/` now returns a simple running status response. For example:
+Start all services with a single command:
 
-- `http://localhost:3000/`
-- `http://localhost:3000/api/healthz`
+```bash
+./scripts/dev.sh
+```
 
-### 3. Build everything
+This script automatically:
+- Checks and installs missing dependencies
+- Starts PostgreSQL in Docker
+- Starts the API server with hot-reload
+- Starts the frontend with hot-reload
+- Shows service URLs and maintains persistent database
+
+**Services available at:**
+- Frontend: http://localhost:3000
+- API Server: http://localhost:3001
+- Database: postgresql://postgres:postgres@localhost:5432/jenny_ai_clone
+
+Press **Ctrl+C** to stop all services (PostgreSQL will continue running for data persistence).
+
+### Stop all services
+
+To stop all development services:
+
+```bash
+./scripts/stop.sh
+```
+
+This script:
+- Stops the frontend and API server processes
+- Stops Docker containers
+- Preserves PostgreSQL data in the Docker volume
+
+### 3. Manual setup (Alternative)
+
+If you prefer to run services manually:
+
+1. **Start PostgreSQL in Docker:**
+   ```bash
+   docker compose up postgres -d
+   ```
+
+2. **Start API Server** (in a new terminal):
+   ```bash
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone" \
+   PORT=3001 \
+   pnpm --filter @workspace/api-server dev
+   ```
+
+3. **Start Frontend** (in another terminal):
+   ```bash
+   API_SERVER=http://localhost:3001 \
+   pnpm --filter @workspace/openjenni dev
+   ```
+
+### 4. Build and typecheck
 
 To typecheck and build all workspace packages:
 
@@ -45,6 +100,31 @@ To run only workspace typechecking:
 ```bash
 pnpm run typecheck
 ```
+
+## Frontend Status
+
+The frontend (`artifacts/openjenni`) is a React application built with Vite. It includes:
+
+- **UI Components**: Shadcn/ui components with Tailwind CSS
+- **API Integration**: Configured to proxy `/api` requests to the backend
+- **Development Server**: Runs on port 3000 with hot-reload
+- **ARM64 Support**: Compatible with Apple Silicon (may require additional native dependencies)
+
+### Frontend Dependencies
+
+For macOS ARM64 users, you may need to install additional native dependencies:
+
+```bash
+npm install @rollup/rollup-darwin-arm64 -g
+```
+
+## API Documentation
+
+The API is mounted under `/api`, and the root path `/` returns a running status response:
+
+- `http://localhost:3000/` - Frontend (dev mode)
+- `http://localhost:3001/` - API server root
+- `http://localhost:3001/api/healthz` - API health check
 
 ## Docker
 

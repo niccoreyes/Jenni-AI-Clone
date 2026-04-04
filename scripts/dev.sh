@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-set -e
 
 # Colors for output
 RED='\033[0;31m'
@@ -11,13 +10,93 @@ NC='\033[0m' # No Color
 echo -e "${BLUE}🚀 Jenny AI Clone - Development Mode${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-# Check if Docker is running
+# Function to prompt user
+prompt_install() {
+  local name=$1
+  local install_cmd=$2
+  read -r -p "$(echo -e ${YELLOW})$name is not installed. Install it now? (y/n)$(echo -e ${NC}) " -n 1
+  echo
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${YELLOW}Installing $name...${NC}"
+    eval "$install_cmd"
+    if [ $? -eq 0 ]; then
+      echo -e "${GREEN}✓ $name installed successfully${NC}"
+      return 0
+    else
+      echo -e "${RED}❌ Failed to install $name${NC}"
+      return 1
+    fi
+  else
+    echo -e "${RED}❌ $name is required to continue${NC}"
+    return 1
+  fi
+}
+
+# Check Node.js
+echo -e "${YELLOW}Checking dependencies...${NC}"
+if ! command -v node &> /dev/null; then
+  echo -e "${RED}❌ Node.js is not installed${NC}"
+  if prompt_install "Node.js" "brew install node"; then
+    :
+  else
+    exit 1
+  fi
+fi
+echo -e "${GREEN}✓ Node.js $(node --version)${NC}"
+
+# Check pnpm
+if ! command -v pnpm &> /dev/null; then
+  echo -e "${YELLOW}pnpm not found, attempting to install...${NC}"
+  
+  # Try corepack first
+  if command -v corepack &> /dev/null; then
+    echo -e "${YELLOW}Using corepack to setup pnpm...${NC}"
+    corepack enable 2>/dev/null || true
+    corepack prepare pnpm@latest --activate 2>/dev/null || true
+  fi
+  
+  # If still not found, try npm
+  if ! command -v pnpm &> /dev/null; then
+    if command -v npm &> /dev/null; then
+      echo -e "${YELLOW}Installing pnpm via npm...${NC}"
+      if ! npm install -g pnpm; then
+        echo -e "${RED}❌ Failed to install pnpm via npm${NC}"
+        exit 1
+      fi
+    else
+      echo -e "${RED}❌ Neither corepack nor npm is available to install pnpm${NC}"
+      exit 1
+    fi
+  fi
+  
+  if ! command -v pnpm &> /dev/null; then
+    echo -e "${RED}❌ Failed to setup pnpm${NC}"
+    exit 1
+  fi
+fi
+echo -e "${GREEN}✓ pnpm $(pnpm --version)${NC}"
+
+# Check Docker
 echo -e "${YELLOW}Checking Docker...${NC}"
+if ! command -v docker &> /dev/null; then
+  echo -e "${RED}❌ Docker is not installed${NC}"
+  if prompt_install "Docker Desktop" "brew install docker"; then
+    :
+  else
+    exit 1
+  fi
+fi
+
 if ! docker info > /dev/null 2>&1; then
   echo -e "${RED}❌ Docker is not running. Please start Docker and try again.${NC}"
   exit 1
 fi
 echo -e "${GREEN}✓ Docker is running${NC}"
+
+# Kill any existing processes on ports 3000, 3001
+echo -e "${YELLOW}Cleaning up any existing processes on ports 3000-3001...${NC}"
+lsof -ti:3000,3001 2>/dev/null | xargs kill -9 2>/dev/null || true
+sleep 1
 
 # Check if postgres container is already running
 if docker ps --format '{{.Names}}' | grep -q 'jenny-ai-clone-postgres-1'; then
@@ -54,8 +133,36 @@ echo -e "${GREEN}Development environment ready!${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+  echo -e "${YELLOW}Installing workspace dependencies...${NC}"
+  
+  # Check if we're on macOS ARM64 and temporarily enable ARM64 packages
+  if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    echo -e "${YELLOW}Detected macOS ARM64 - enabling ARM64 native packages...${NC}"
+    # Temporarily comment out ARM64 exclusions in pnpm-workspace.yaml
+    sed -i.bak \
+      -e 's/"lightningcss>lightningcss-darwin-arm64": "-"/# "lightningcss>lightningcss-darwin-arm64": "-"/' \
+      -e 's/"rollup>@rollup\/rollup-darwin-arm64": "-"/# "rollup>@rollup\/rollup-darwin-arm64": "-"/' \
+      -e 's/"@tailwindcss\/oxide>@tailwindcss\/oxide-darwin-arm64": "-"/# "@tailwindcss\/oxide>@tailwindcss\/oxide-darwin-arm64": "-"/' \
+      pnpm-workspace.yaml
+  fi
+  
+  pnpm install --force
+  
+  # Restore original pnpm-workspace.yaml if we modified it
+  if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" && -f "pnpm-workspace.yaml.bak" ]]; then
+    mv pnpm-workspace.yaml.bak pnpm-workspace.yaml
+    echo -e "${GREEN}✓ ARM64 packages enabled for development${NC}"
+  fi
+  
+  echo -e "${GREEN}✓ Dependencies installed${NC}"
+  echo ""
+fi
+
 # Export DATABASE_URL
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone"
+export PORT=3001
 
 # Create a temporary directory for process management
 TEMP_DIR=$(mktemp -d)
@@ -79,21 +186,33 @@ trap cleanup EXIT INT TERM
 
 # Start API Server
 echo -e "${BLUE}Starting API Server...${NC}"
-pnpm --filter @workspace/api-server dev > "$TEMP_DIR/api.log" 2>&1 &
+pnpm --filter @workspace/api-server dev > >(tee "$TEMP_DIR/api.log") 2>&1 &
 API_PID=$!
 echo -e "${GREEN}✓ API Server started (PID: $API_PID)${NC}"
-echo -e "${YELLOW}  Logs: tail -f /tmp/jenny-ai-api.log${NC}"
 
-# Wait a moment for API to start
-sleep 2
+# Wait a moment for API to start and check if it's still running
+sleep 3
+if ! kill -0 $API_PID 2>/dev/null; then
+  echo -e "${RED}❌ API Server failed to start. Error:${NC}"
+  cat "$TEMP_DIR/api.log"
+  exit 1
+fi
 
 # Start Frontend
 export API_SERVER="http://localhost:3001"
 echo -e "${BLUE}Starting Frontend...${NC}"
-pnpm --filter @workspace/openjenni dev > "$TEMP_DIR/frontend.log" 2>&1 &
+pnpm --filter @workspace/openjenni dev > >(tee "$TEMP_DIR/frontend.log") 2>&1 &
 FRONTEND_PID=$!
 echo -e "${GREEN}✓ Frontend started (PID: $FRONTEND_PID)${NC}"
-echo -e "${YELLOW}  Logs: tail -f /tmp/jenny-ai-frontend.log${NC}"
+
+# Wait a moment for Frontend to start and check if it's still running
+sleep 3
+if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+  echo -e "${RED}❌ Frontend failed to start. Error:${NC}"
+  cat "$TEMP_DIR/frontend.log"
+  kill $API_PID 2>/dev/null || true
+  exit 1
+fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
