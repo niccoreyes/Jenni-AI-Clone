@@ -72,11 +72,36 @@ export default function Editor() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef(content);
   const [ghostPosition, setGhostPosition] = useState(0);
-  const hasInitializedRef = useRef(false);
+  const hasInitializedRef = useRef<number | null>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
+  const scrollThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Throttled scroll handler to sync textarea with ghost text overlay
+  const handleScroll = useCallback(() => {
+    if (scrollThrottleTimerRef.current) return;
+
+    scrollThrottleTimerRef.current = setTimeout(() => {
+      scrollThrottleTimerRef.current = null;
+    }, 16); // ~60fps
+
+    if (overlayRef.current && textareaRef.current) {
+      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
+      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  }, []);
+
+  // Cleanup throttle timer on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollThrottleTimerRef.current) {
+        clearTimeout(scrollThrottleTimerRef.current);
+      }
+    };
+  }, []);
 
   // Reset initialization flag when document ID changes
   useEffect(() => {
-    hasInitializedRef.current = false;
+    hasInitializedRef.current = null;
     setContent("");
     setTitle("");
     setGhostText("");
@@ -99,9 +124,9 @@ export default function Editor() {
       setContent(doc.content);
       setTitle(doc.title);
       setCitationStyle(doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard");
-      hasInitializedRef.current = true;
+      hasInitializedRef.current = docId;
     }
-  }, [doc]);
+  }, [doc, docId]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -219,7 +244,10 @@ export default function Editor() {
           onSuccess: (result) => {
             // Only show ghost text if content hasn't changed since request started
             if (contentRef.current === currentContent) {
-              setGhostText(result.suggestion);
+              const suggestion = result.suggestion.startsWith(" ")
+                ? result.suggestion
+                : " " + result.suggestion;
+              setGhostText(suggestion);
             }
           },
           onError: (error) => {
@@ -469,17 +497,19 @@ export default function Editor() {
               onKeyDown={handleKeyDown}
               onMouseUp={handleTextSelect}
               onKeyUp={handleTextSelect}
+              onScroll={handleScroll}
               placeholder="Start writing your document... Press Ctrl+J for AI autocomplete"
               className="absolute inset-0 resize-none border-0 rounded-none bg-background font-serif text-base leading-relaxed text-foreground p-6 focus-visible:ring-0 focus-visible:outline-none"
               data-testid="textarea-editor"
             />
             {ghostText && (
               <div
-                className="absolute pointer-events-none"
+                ref={overlayRef}
+                className="absolute inset-0 pointer-events-none overflow-hidden"
                 style={{
-                  top: 24,
-                  left: 24,
-                  right: 24,
+                  paddingTop: 24,
+                  paddingLeft: 24,
+                  paddingRight: 24,
                   fontFamily: "Georgia, serif",
                   fontSize: "1rem",
                   lineHeight: "1.625",
