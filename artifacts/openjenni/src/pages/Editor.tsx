@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCompletion } from "@ai-sdk/react";
 import {
   useGetDocument,
   getGetDocumentQueryKey,
   useUpdateDocument,
-  useAutocomplete,
   useParaphrase,
   useAiChat,
   useGenerateOutline,
@@ -146,7 +146,53 @@ export default function Editor() {
     }
   });
 
-  const autocomplete = useAutocomplete();
+  // Streaming autocomplete using Vercel AI SDK
+  const {
+    completion: autocompleteText,
+    complete: triggerAutocomplete,
+    isLoading: isAutocompleteLoading,
+    stop: stopAutocomplete,
+    error: autocompleteError,
+  } = useCompletion({
+    api: `/api/ai/autocomplete/stream`,
+    onFinish: () => {
+      // Completion finished - ghost text is already set via useEffect
+    },
+    onError: (error) => {
+      console.error("Autocomplete error:", error);
+      const errorMessage = error?.message || "Unknown error";
+      if (errorMessage.includes("rate limit")) {
+        toast({
+          title: "Rate limit exceeded",
+          description: "Please wait a moment before trying again",
+          variant: "destructive"
+        });
+      } else if (errorMessage.includes("authentication")) {
+        toast({
+          title: "Authentication failed",
+          description: "Please check your API key in Settings",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Autocomplete failed",
+          description: errorMessage,
+          variant: "destructive"
+        });
+      }
+    },
+  });
+
+  // Sync streaming completion to ghost text state with whitespace normalization
+  useEffect(() => {
+    if (autocompleteText) {
+      const suggestion = autocompleteText.startsWith(" ")
+        ? autocompleteText
+        : " " + autocompleteText;
+      setGhostText(suggestion.replace(/\s+/g, " "));
+    }
+  }, [autocompleteText]);
+
   const paraphrase = useParaphrase();
   const aiChat = useAiChat();
   const generateOutline = useGenerateOutline();
@@ -209,6 +255,10 @@ export default function Editor() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Tab" && ghostText) {
       e.preventDefault();
+      // Stop streaming if still in progress
+      if (isAutocompleteLoading) {
+        stopAutocomplete();
+      }
       // Insert ghost text at the stored position, not at the end
       const before = content.slice(0, ghostPosition);
       const after = content.slice(ghostPosition);
@@ -218,7 +268,11 @@ export default function Editor() {
       scheduleSave(newContent, title, citationStyle);
       return;
     }
-    if (e.key === "Escape" && ghostText) {
+    if (e.key === "Escape" && (ghostText || isAutocompleteLoading)) {
+      // Stop streaming and clear suggestion
+      if (isAutocompleteLoading) {
+        stopAutocomplete();
+      }
       setGhostText("");
       return;
     }
@@ -226,7 +280,7 @@ export default function Editor() {
       e.preventDefault();
 
       // Prevent multiple simultaneous autocomplete requests
-      if (autocomplete.isPending) {
+      if (isAutocompleteLoading) {
         return;
       }
 
@@ -238,43 +292,14 @@ export default function Editor() {
       // Use contentRef.current to get the latest content (not stale closure)
       const currentContent = contentRef.current;
 
-      autocomplete.mutate(
-        { data: { currentText: currentContent, documentId: docId, citationStyle } },
-        {
-          onSuccess: (result) => {
-            // Only show ghost text if content hasn't changed since request started
-            if (contentRef.current === currentContent) {
-              const suggestion = result.suggestion.startsWith(" ")
-                ? result.suggestion
-                : " " + result.suggestion;
-              setGhostText(suggestion);
-            }
-          },
-          onError: (error) => {
-            console.error("Autocomplete error:", error);
-            const errorMessage = error?.message || "Unknown error";
-            if (errorMessage.includes("rate limit")) {
-              toast({
-                title: "Rate limit exceeded",
-                description: "Please wait a moment before trying again",
-                variant: "destructive"
-              });
-            } else if (errorMessage.includes("authentication")) {
-              toast({
-                title: "Authentication failed",
-                description: "Please check your API key in Settings",
-                variant: "destructive"
-              });
-            } else {
-              toast({
-                title: "Autocomplete failed",
-                description: errorMessage,
-                variant: "destructive"
-              });
-            }
-          }
-        }
-      );
+      // Trigger streaming autocomplete
+      triggerAutocomplete(currentContent, {
+        body: {
+          currentText: currentContent,
+          documentId: docId,
+          citationStyle,
+        },
+      });
     }
   };
 
@@ -520,21 +545,29 @@ export default function Editor() {
               >
                 {content.slice(0, ghostPosition)}
                 <span style={{ color: "hsl(var(--muted-foreground) / 0.5)", fontStyle: "italic" }}>
-                  {ghostText}
+                  {ghostText.replace(/\s+/g, " ")}
                 </span>
                 {content.slice(ghostPosition)}
               </div>
             )}
           </div>
 
-          {ghostText && (
+          {(ghostText || isAutocompleteLoading) && (
             <div className="border-t border-border bg-muted/30 px-4 py-1.5 flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-muted-foreground">AI suggestion — press</span>
-              <kbd className="text-xs bg-background border border-border rounded px-1">Tab</kbd>
-              <span className="text-xs text-muted-foreground">to accept,</span>
-              <kbd className="text-xs bg-background border border-border rounded px-1">Esc</kbd>
-              <span className="text-xs text-muted-foreground">to dismiss</span>
-              {autocomplete.isPending && <span className="text-xs text-muted-foreground ml-2">Loading...</span>}
+              {ghostText ? (
+                <>
+                  <span className="text-xs text-muted-foreground">AI suggestion — press</span>
+                  <kbd className="text-xs bg-background border border-border rounded px-1">Tab</kbd>
+                  <span className="text-xs text-muted-foreground">to accept,</span>
+                  <kbd className="text-xs bg-background border border-border rounded px-1">Esc</kbd>
+                  <span className="text-xs text-muted-foreground">to dismiss</span>
+                </>
+              ) : (
+                <span className="text-xs text-muted-foreground">Generating suggestion...</span>
+              )}
+              {isAutocompleteLoading && (
+                <span className="inline-block w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin ml-2" />
+              )}
             </div>
           )}
 

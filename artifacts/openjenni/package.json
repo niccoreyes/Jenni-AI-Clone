@@ -73,5 +73,9 @@
     "vite": "catalog:",
     "wouter": "^3.3.5",
     "zod": "catalog:"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^3.0.147",
+    "ai": "^6.0.145"
   }
 }

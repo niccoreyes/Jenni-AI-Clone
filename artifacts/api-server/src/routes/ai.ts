@@ -10,6 +10,9 @@ import {
   GenerateOutlineResponse,
 } from "@workspace/api-zod";
 import { db, settingsTable } from "@workspace/db";
+import { streamText, type LanguageModel } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 
 const router: IRouter = Router();
 
@@ -175,6 +178,77 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   }
 
   res.json(AutocompleteResponse.parse({ suggestion, alternative: null }));
+});
+
+// Helper to create model provider based on settings
+function createModelProvider(settings: { provider: string; apiKey: string; baseUrl?: string | null; model: string }): LanguageModel {
+  const { provider, apiKey, baseUrl, model } = settings;
+
+  switch (provider) {
+    case "anthropic":
+      return createAnthropic({ apiKey, baseURL: baseUrl ?? undefined })(model);
+    case "openrouter":
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? "https://openrouter.ai/api/v1" })(model);
+    case "moonshot":
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? "https://api.moonshot.cn/v1" })(model);
+    default:
+      return createOpenAI({ apiKey, baseURL: baseUrl ?? "https://api.openai.com/v1" })(model);
+  }
+}
+
+// Streaming autocomplete endpoint
+router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
+  const parsed = AutocompleteBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const settings = await getSettings();
+  const configuredSettings = settings ?? { provider: "openai", model: "gpt-4o-mini" };
+
+  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
+
+  const lastChunk = parsed.data.currentText.slice(-1000);
+
+  try {
+    if (!configuredSettings.apiKey) {
+      res.status(400).json({ error: "API key not configured" });
+      return;
+    }
+
+    const model = createModelProvider({
+      provider: configuredSettings.provider,
+      model: configuredSettings.model,
+      apiKey: configuredSettings.apiKey,
+      baseUrl: configuredSettings.baseUrl ?? undefined,
+    });
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      prompt: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:`,
+      temperature: 0.3,
+      maxTokens: 1024,
+    } as any);
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // Stream the response
+    for await (const chunk of result.textStream) {
+      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+    }
+
+    // Send completion event
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error("Streaming error:", error);
+    res.status(500).json({ error: "Streaming failed" });
+  }
 });
 
 router.post("/ai/paraphrase", async (req, res): Promise<void> => {
