@@ -168,7 +168,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
 
-  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
+  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Do NOT add citations, author names, years, or references in parentheses. Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
 
   const lastChunk = parsed.data.currentText.slice(-1000);
   const lastSentence = parsed.data.currentText.split(/[.!?;\n]+/).pop() || "";
@@ -186,10 +186,8 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
           content: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:`,
         },
       ],
-      0.3,
+      0.2,
     );
-
-    // Post-process: Remove any repetition of the user's last sentence
     console.log("[DEBUG] lastSentence:", JSON.stringify(lastSentence));
     console.log("[DEBUG] suggestion before:", JSON.stringify(suggestion));
     if (
@@ -279,7 +277,7 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
     model: "gpt-4o-mini",
   };
 
-  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Match the academic tone and citation style (${parsed.data.citationStyle ?? "APA7"}). Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
+  const systemPrompt = `You are completing the user's sentence. The text they provided is INCOMPLETE. Your job is to continue from the EXACT point where they stopped writing. Do NOT start a new sentence or paragraph. Do NOT repeat or paraphrase what they wrote. Continue the grammatical structure, thought, or phrase they were in the middle of. If they stopped mid-sentence, finish that sentence naturally. If they just finished a sentence, add 1-2 sentences that logically follow. Do NOT add citations, author names, years, or references in parentheses. Return ONLY the continuation text—no preamble, no explanations, no quotes.`;
 
   const lastChunk = parsed.data.currentText.slice(-1000);
 
@@ -300,8 +298,8 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
       model,
       system: systemPrompt,
       prompt: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:`,
-      temperature: 0.3,
-      maxTokens: 1024,
+      temperature: 0.2,
+      maxTokens: 512,
     } as any);
 
     pipeTextStreamToResponse({
