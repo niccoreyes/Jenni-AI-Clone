@@ -200,6 +200,8 @@ fi
 
 # Start Frontend
 export API_SERVER="http://localhost:3001"
+export BASE_PATH="/"
+export PORT=3000
 echo -e "${BLUE}Starting Frontend...${NC}"
 pnpm --filter @workspace/openjenni dev > >(tee "$TEMP_DIR/frontend.log") 2>&1 &
 FRONTEND_PID=$!
