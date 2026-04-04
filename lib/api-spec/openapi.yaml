@@ -3,13 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: OpenJenni Academic AI Writing Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: documents
+    description: Document management
+  - name: ai
+    description: AI writing assistance
+  - name: citations
+    description: Citation management
+  - name: pdfs
+    description: PDF library management
+  - name: settings
+    description: User settings and BYOK configuration
+
 paths:
   /healthz:
     get:
@@ -24,6 +35,298 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /documents:
+    get:
+      operationId: listDocuments
+      tags: [documents]
+      summary: List all documents
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Document"
+    post:
+      operationId: createDocument
+      tags: [documents]
+      summary: Create a new document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentBody"
+      responses:
+        "201":
+          description: Created document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+
+  /documents/{id}:
+    get:
+      operationId: getDocument
+      tags: [documents]
+      summary: Get a document by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "404":
+          description: Not found
+    put:
+      operationId: updateDocument
+      tags: [documents]
+      summary: Update a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentBody"
+      responses:
+        "200":
+          description: Updated document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+    delete:
+      operationId: deleteDocument
+      tags: [documents]
+      summary: Delete a document
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /documents/stats:
+    get:
+      operationId: getDocumentStats
+      tags: [documents]
+      summary: Get writing statistics across all documents
+      responses:
+        "200":
+          description: Writing stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentStats"
+
+  /ai/autocomplete:
+    post:
+      operationId: autocomplete
+      tags: [ai]
+      summary: Get AI autocomplete suggestion for current text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AutocompleteBody"
+      responses:
+        "200":
+          description: Autocomplete suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutocompleteResult"
+
+  /ai/paraphrase:
+    post:
+      operationId: paraphrase
+      tags: [ai]
+      summary: Paraphrase selected text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParaphraseBody"
+      responses:
+        "200":
+          description: Paraphrased text
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParaphraseResult"
+
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: Chat with AI research assistant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatBody"
+      responses:
+        "200":
+          description: AI chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiChatResult"
+
+  /ai/outline:
+    post:
+      operationId: generateOutline
+      tags: [ai]
+      summary: Generate document outline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OutlineBody"
+      responses:
+        "200":
+          description: Generated outline
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutlineResult"
+
+  /citations:
+    get:
+      operationId: listCitations
+      tags: [citations]
+      summary: List citations for a document
+      parameters:
+        - name: documentId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of citations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Citation"
+    post:
+      operationId: createCitation
+      tags: [citations]
+      summary: Add a citation to a document
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCitationBody"
+      responses:
+        "201":
+          description: Created citation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Citation"
+
+  /citations/{id}:
+    delete:
+      operationId: deleteCitation
+      tags: [citations]
+      summary: Delete a citation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /pdfs:
+    get:
+      operationId: listPdfs
+      tags: [pdfs]
+      summary: List uploaded PDFs
+      responses:
+        "200":
+          description: List of PDFs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PdfDocument"
+
+  /pdfs/{id}:
+    delete:
+      operationId: deletePdf
+      tags: [pdfs]
+      summary: Delete a PDF
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get user settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update user settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsBody"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSettings"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +337,429 @@ components:
       required:
         - status
 
+    Document:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        wordCount:
+          type: integer
+        targetWordCount:
+          type: integer
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - content
+        - citationStyle
+        - wordCount
+        - createdAt
+        - updatedAt
+
+    CreateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        targetWordCount:
+          type: integer
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+      required:
+        - title
+
+    UpdateDocumentBody:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        targetWordCount:
+          type: integer
+          nullable: true
+        fieldOfStudy:
+          type: string
+          nullable: true
+
+    DocumentStats:
+      type: object
+      properties:
+        totalDocuments:
+          type: integer
+        totalWords:
+          type: integer
+        totalCitations:
+          type: integer
+        totalPdfs:
+          type: integer
+        recentDocuments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Document"
+      required:
+        - totalDocuments
+        - totalWords
+        - totalCitations
+        - totalPdfs
+        - recentDocuments
+
+    AutocompleteBody:
+      type: object
+      properties:
+        documentId:
+          type: integer
+        currentText:
+          type: string
+        cursorPosition:
+          type: integer
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+      required:
+        - currentText
+
+    AutocompleteResult:
+      type: object
+      properties:
+        suggestion:
+          type: string
+        alternative:
+          type: string
+          nullable: true
+      required:
+        - suggestion
+
+    ParaphraseBody:
+      type: object
+      properties:
+        text:
+          type: string
+        mode:
+          type: string
+          enum: [simplify, academic, expand, shorten, active, passive]
+        documentId:
+          type: integer
+          nullable: true
+      required:
+        - text
+        - mode
+
+    ParaphraseResult:
+      type: object
+      properties:
+        result:
+          type: string
+        warning:
+          type: string
+          nullable: true
+      required:
+        - result
+
+    AiChatBody:
+      type: object
+      properties:
+        message:
+          type: string
+        documentId:
+          type: integer
+          nullable: true
+        documentContext:
+          type: string
+          nullable: true
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+      required:
+        - message
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    AiChatResult:
+      type: object
+      properties:
+        response:
+          type: string
+        citations:
+          type: array
+          items:
+            type: string
+      required:
+        - response
+        - citations
+
+    OutlineBody:
+      type: object
+      properties:
+        topic:
+          type: string
+        thesis:
+          type: string
+        documentType:
+          type: string
+          enum: [research_paper, essay, literature_review, thesis, report]
+        fieldOfStudy:
+          type: string
+          nullable: true
+      required:
+        - topic
+        - thesis
+
+    OutlineResult:
+      type: object
+      properties:
+        outline:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutlineSection"
+      required:
+        - outline
+
+    OutlineSection:
+      type: object
+      properties:
+        level:
+          type: integer
+        title:
+          type: string
+        subsections:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutlineSection"
+      required:
+        - level
+        - title
+        - subsections
+
+    Citation:
+      type: object
+      properties:
+        id:
+          type: integer
+        documentId:
+          type: integer
+        sourceId:
+          type: string
+        author:
+          type: string
+        year:
+          type: string
+          nullable: true
+        title:
+          type: string
+        journal:
+          type: string
+          nullable: true
+        volume:
+          type: string
+          nullable: true
+        pages:
+          type: string
+          nullable: true
+        doi:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        pdfId:
+          type: integer
+          nullable: true
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        formatted:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - documentId
+        - sourceId
+        - author
+        - title
+        - citationStyle
+        - formatted
+        - createdAt
+
+    CreateCitationBody:
+      type: object
+      properties:
+        documentId:
+          type: integer
+        author:
+          type: string
+        year:
+          type: string
+          nullable: true
+        title:
+          type: string
+        journal:
+          type: string
+          nullable: true
+        volume:
+          type: string
+          nullable: true
+        pages:
+          type: string
+          nullable: true
+        doi:
+          type: string
+          nullable: true
+        url:
+          type: string
+          nullable: true
+        pdfId:
+          type: integer
+          nullable: true
+        citationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+      required:
+        - documentId
+        - author
+        - title
+        - citationStyle
+
+    PdfDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        originalName:
+          type: string
+        extractedText:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        pageCount:
+          type: integer
+          nullable: true
+        uploadedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - filename
+        - originalName
+        - uploadedAt
+
+    UserSettings:
+      type: object
+      properties:
+        id:
+          type: integer
+        provider:
+          type: string
+          enum: [openai, anthropic, moonshot, custom]
+        apiKey:
+          type: string
+          nullable: true
+        baseUrl:
+          type: string
+          nullable: true
+        model:
+          type: string
+        defaultCitationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        language:
+          type: string
+        userRole:
+          type: string
+          enum: [undergraduate, graduate, phd, researcher, professional]
+        autocompleteEnabled:
+          type: boolean
+        citationsEnabled:
+          type: boolean
+        pdfChatEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - provider
+        - model
+        - defaultCitationStyle
+        - language
+        - userRole
+        - autocompleteEnabled
+        - citationsEnabled
+        - pdfChatEnabled
+        - createdAt
+        - updatedAt
+
+    UpdateSettingsBody:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [openai, anthropic, moonshot, custom]
+        apiKey:
+          type: string
+          nullable: true
+        baseUrl:
+          type: string
+          nullable: true
+        model:
+          type: string
+        defaultCitationStyle:
+          type: string
+          enum: [APA7, MLA9, Chicago17, IEEE, Harvard]
+        language:
+          type: string
+        userRole:
+          type: string
+          enum: [undergraduate, graduate, phd, researcher, professional]
+        autocompleteEnabled:
+          type: boolean
+        citationsEnabled:
+          type: boolean
+        pdfChatEnabled:
+          type: boolean

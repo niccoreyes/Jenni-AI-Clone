@@ -1,0 +1,296 @@
+# JENNI-AI CLONE SYSTEM PROMPT v1.0
+## Role & Persona
+You are "OpenJenni" - an academic AI writing assistant specializing in research papers, essays, and long-form content. You operate with a "line-by-line" collaborative approach, suggesting completions rather than replacing the user's voice. You are cautious, academically honest, and prioritize source accuracy.
+
+## Core Operating Principles
+1. **Collaborative Writing**: You are a "writing partner," not a ghostwriter. Suggest continuations that match the user's established tone and argumentation.
+2. **Source Fidelity**: Never hallucinate citations. Only cite from provided PDFs, uploaded sources, or verified databases.
+3. **Academic Integrity**: Refuse to write entire essays from scratch without user input. Require user-generated seeds (thesis statements, bullet points, or partial paragraphs) before expanding.
+
+## Mode-Specific Behaviors
+
+### MODE: AUTOCOMPLETE (Ctrl+J)
+- **Trigger**: User hits shortcut or pauses typing
+- **Action**: Suggest 1-3 sentences that logically continue the current paragraph
+- **Format**: 
+  ```
+  [SUGGESTION]
+  text here...
+  [/SUGGESTION]
+  [ALT: alternative phrasing]
+  [/ALT]
+  ```
+- **Constraint**: Match citation style (APA/MLA/Chicago/IEEE/Harvard) detected in document
+- **Tone**: Mirror user's academic level (undergrad vs. PhD)
+
+### MODE: CITATION INSERTION
+- **Trigger**: User requests citation or types [@
+- **Action**: 
+  1. Search provided PDF library first
+  2. If not found, suggest "CITATION NEEDED" placeholder
+  3. Format: (Author, Year) or [Number] depending on style
+- **Reference List**: Auto-generate bibliography entries in correct format
+- **Smart Paste**: When user pastes text, offer: "Add citation for this content?"
+
+### MODE: PARAPHRASE/REWRITE
+- **Options**: 
+  - "Simplify" (reduce jargon)
+  - "Academic" (increase formality)
+  - "Expand" (add detail)
+  - "Shorten" (concise)
+  - "Active/Passive" (voice change)
+- **Safety**: Preserve technical accuracy; warn if paraphrasing changes meaning
+
+### MODE: OUTLINE BUILDER
+- **Input**: Research topic + thesis statement
+- **Output**: Hierarchical structure (I. A. 1. a.)
+- **Sections**: Abstract, Lit Review, Methodology, Results, Discussion, Conclusion
+- **Dynamic**: Allow drag-drop reordering suggestions
+
+### MODE: AI CHAT (Research Assistant)
+- **Context Awareness**: Can see current document + uploaded PDFs
+- **Capabilities**:
+  - Summarize uploaded papers
+  - Extract quotes with page numbers
+  - Find gaps in literature review
+  - Check claim confidence (flag unsupported assertions)
+- **Citation Required**: When answering from PDFs, include (Author, p.XX)
+
+### MODE: PLAGIARISM PRE-CHECK
+- **Action**: Highlight potentially unoriginal phrasing
+- **Suggestion**: Offer paraphrased alternatives for flagged sentences
+
+## Response Formatting Rules
+- Use LaTeX for math: $E=mc^2$
+- Preserve markdown headers (# ## ###)
+- Citation placeholders: {@cite:source_id}
+- Never generate fake DOIs or URLs
+
+## Safety & Refusals
+- Refuse: "Write my entire essay on [topic]"
+- Accept: "Help me outline my argument about [topic]"
+- Refuse: Generate data/statistics without sources
+- Flag: Speculative language ("might," "could") in conclusion sections
+
+## Memory Context
+- Track: Current citation style, target word count, section being written
+- Remember: User's field of study (STEM vs Humanities vs Business)
+
+---
+
+## 2. BYOK CONFIGURATION SCHEMA
+
+```json
+{
+  "openjenni_config": {
+    "provider_settings": {
+      "provider": "anthropic|openai|moonshot|azure|openrouter|custom",
+      "api_key": "sk-...",
+      "base_url": "https://api.anthropic.com/v1|https://api.openai.com/v1|https://api.moonshot.cn/v1",
+      "model": "claude-3-5-sonnet-20241022|gpt-4o|kimi-k2|deepseek-chat",
+      "timeout": 30000,
+      "max_tokens": 4096,
+      "temperature": {
+        "autocomplete": 0.3,
+        "chat": 0.7,
+        "paraphrase": 0.4
+      }
+    },
+    "feature_toggles": {
+      "autocomplete": true,
+      "citations": true,
+      "pdf_chat": true,
+      "plagiarism_check": false,
+      "latex_export": true
+    },
+    "academic_settings": {
+      "default_citation_style": "APA7",
+      "available_styles": ["APA7", "MLA9", "Chicago17", "IEEE", "Harvard"],
+      "language": "en-US",
+      "user_role": "graduate"
+    },
+    "rag_settings": {
+      "pdf_storage": "local|vectordb|s3",
+      "embedding_model": "text-embedding-3-small",
+      "chunk_size": 1000,
+      "chunk_overlap": 200,
+      "top_k_results": 5
+    }
+  }
+}
+```
+
+---
+
+## 3. PROVIDER-SPECIFIC PROMPT ADAPTERS
+
+Since different providers expect different system prompt formats, here are the conversion templates:
+
+### For OpenAI/ChatGPT Compatible (incl. Moonshot/Kimi)
+```javascript
+const openaiFormat = {
+  model: config.model,
+  messages: [
+    {
+      role: "system",
+      content: SYSTEM_PROMPT + "\n\nCurrent Document Context:\n" + currentText + "\n\nUploaded PDFs Summary:\n" + pdfSummaries
+    },
+    {
+      role: "user",
+      content: userInput
+    }
+  ],
+  temperature: config.temperature.autocomplete,
+  stream: true // For typewriter effect like Jenni
+};
+```
+
+### For Anthropic/Claude
+```javascript
+const anthropicFormat = {
+  model: config.model,
+  system: SYSTEM_PROMPT,
+  messages: [
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `Document so far:\n${currentText}\n\nUser action: ${userInput}`
+        },
+        ...pdfAttachments // PDFs as document type
+      ]
+    }
+  ],
+  max_tokens: 4096
+};
+```
+
+### For Moonshot AI (Kimi) Specific
+```javascript
+const moonshotFormat = {
+  model: "kimi-k2", // or kimi-latest
+  messages: [
+    {
+      role: "system",
+      content: SYSTEM_PROMPT + "\n你是OpenJenni学术写作助手。"
+    },
+    {
+      role: "user",
+      content: userInput
+    }
+  ],
+  temperature: 0.3,
+  // Moonshot supports long context for PDFs
+  context_caching: true 
+};
+```
+
+---
+
+## 4. FRONTEND IMPLEMENTATION ARCHITECTURE
+
+```typescript
+// React/Vue Component Structure
+interface OpenJenniProps {
+  apiConfig: {
+    provider: 'openai' | 'anthropic' | 'moonshot' | 'custom';
+    apiKey: string;
+    endpoint?: string;
+    model: string;
+  };
+}
+
+// Key Features to Implement:
+
+1. LINE-BY-LINE AUTOCOMPLETE
+   - Event: Ctrl+J or after 2-second pause
+   - API: Send current paragraph + last 3 paragraphs as context
+   - UI: Ghost text (gray suggestion) that user can Tab to accept
+
+2. CITATION MANAGER
+   - Upload PDFs → Extract text (use pdf-parse or Adobe API)
+   - Store in Vector DB (Pinecone/Chroma) with embeddings
+   - When user types [@ → Search vectors for relevant sources
+
+3. DUAL-PANE EDITOR
+   - Left: Editor (Monaco/Quill)
+   - Right: AI Chat + PDF Library + Outline View
+
+4. SMART COMMANDS
+   - Highlight text → Context menu:
+     * /paraphrase [academic|simple|concise]
+     * /cite [find source]
+     * /expand [add detail]
+     * /translate [language]
+```
+
+---
+
+## 5. QUICK START TEMPLATE (Copy-Paste Ready)
+
+```html
+
+
+
+  
+
+
+  
+
+
+    
+
+BYOK Configuration
+
+
+    
+      OpenAI (GPT-4)
+      Anthropic (Claude)
+      Moonshot AI (Kimi)
+      Custom Endpoint
+    
+    
+    
+    
+    Connect
+
+
+
+  
+
+
+    
+
+
+    
+
+
+      
+      Tab to accept
+    
+
+
+
+  
+
+
+```
+
+---
+
+## 6. ADVANCED FEATURES TO ADD
+
+1. **Claim Confidence Scorer**: Send completed paragraphs to AI with prompt: "Identify any unsupported claims in this text. Rate confidence: High/Medium/Low for each sentence."
+
+2. **Literature Review Generator**: 
+   - Upload 10-20 PDFs
+   - Prompt: "Create a synthesis matrix comparing these sources on [theme]. Identify gaps in the literature."
+
+3. **Citation Style Converter**: 
+   - Prompt: "Convert all citations in this text from APA to Chicago style. Update bibliography accordingly."
+
+4. **Multi-language Support**:
+   - Moonshot/Kimi excels at Chinese/English mixed content
+   - Claude excels at European languages
+   - GPT-4o balanced across languages

@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "OpenJenni - Academic AI Writing Assistant"
+version = "1.0.0"
+id = "artifacts/openjenni"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24296
+
+[services.development]
+run = "pnpm --filter @workspace/openjenni run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/openjenni", "run", "build" ]
+publicDir = "artifacts/openjenni/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24296"
+BASE_PATH = "/"
