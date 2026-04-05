@@ -76,7 +76,7 @@ const RichTextEditor = forwardRef<
             viewMode === "prose"
               ? "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-full font-serif text-base leading-relaxed p-6"
               : viewMode === "paper"
-                ? "paper-view max-w-[816px] mx-auto focus:outline-none min-h-[1056px] font-serif text-base leading-relaxed px-[96px] py-[96px]"
+                ? "paper-view max-w-[816px] mx-auto focus:outline-none min-h-[1056px] font-serif text-base leading-relaxed px-[96px] py-[96px] shadow-[0_0_20px_rgba(0,0,0,0.15)] rounded-sm"
                 : "max-w-none focus:outline-none min-h-full font-serif text-base leading-relaxed p-6",
         },
       },
@@ -120,14 +120,7 @@ const RichTextEditor = forwardRef<
         className={`h-full overflow-y-auto ${viewMode === "paper" ? "bg-gray-200" : "bg-background"}`}
       >
         <div className={viewMode === "paper" ? "py-8" : ""}>
-          <EditorContent
-            editor={editor}
-            className={
-              viewMode === "paper"
-                ? "shadow-[0_0_20px_rgba(0,0,0,0.15)] rounded-sm"
-                : ""
-            }
-          />
+          <EditorContent editor={editor} className="" />
         </div>
       </div>
     );
