@@ -377,10 +377,6 @@
   letter-spacing: 0.05em;
 }
 
-.paper-view [data-type="page-break"] {
-  display: none;
-}
-
 .paper-view {
   background: #fff !important;
   color: #1a1a1a !important;
