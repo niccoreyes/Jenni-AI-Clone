@@ -109,7 +109,7 @@
   --chart-4: 38 92% 50%;
   --chart-5: 0 72% 51%;
 
-  --app-font-sans: "Inter", "system-ui", sans-serif;
+  --app-font-sans: "Inter", system-ui, sans-serif;
   --app-font-serif: "Georgia", "Times New Roman", serif;
   --app-font-mono: "Fira Code", "Cascadia Code", "Menlo", monospace;
   --radius: 0.375rem;
@@ -332,6 +332,11 @@
   overflow: hidden;
 }
 
+.paper-content {
+  max-height: 864px;
+  overflow: hidden;
+}
+
 .paper-page .page-number {
   position: absolute;
   bottom: 36px;
@@ -354,7 +359,7 @@
 [data-type="page-break"]::after {
   content: "PAGE BREAK";
   position: absolute;
-  top: 50%;
+  top: 0;
   left: 50%;
   transform: translate(-50%, -50%);
   background: #f3f4f6;
@@ -366,6 +371,7 @@
 }
 
 .paper-view [data-type="page-break"] {
+  border-top: none;
   position: relative;
   margin: 2rem 0;
   height: 1.5rem;
@@ -385,7 +391,7 @@
 .paper-view [data-type="page-break"]::after {
   content: "PAGE BREAK";
   position: absolute;
-  top: 50%;
+  top: 0;
   left: 50%;
   transform: translate(-50%, -50%);
   background: #fff;

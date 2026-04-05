@@ -43,6 +43,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import AiChatPanel from "@/components/AiChatPanel";
+import PaperView from "@/components/PaperView";
 
 type SidebarTab = "chat" | "citations" | "pdfs" | "outline";
 
@@ -90,6 +91,7 @@ export default function Editor() {
     doi: "",
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [viewMode, setViewMode] = useState<"edit" | "paper">("edit");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
