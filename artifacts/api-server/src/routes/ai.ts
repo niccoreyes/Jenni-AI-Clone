@@ -41,6 +41,9 @@ function buildClient(settings: {
       case "openrouter":
         endpoint = "https://openrouter.ai/api/v1";
         break;
+      case "ollama":
+        endpoint = baseUrl ?? "http://localhost:11434/v1";
+        break;
       default:
         endpoint = "https://api.openai.com/v1";
     }
@@ -88,12 +91,11 @@ async function callOpenAICompat(
         return data.choices[0]?.message?.content ?? "";
       }
 
-      // Handle rate limiting (429) with exponential backoff
       if (response.status === 429) {
         const retryAfter = response.headers.get("retry-after");
         const waitTime = retryAfter
           ? parseInt(retryAfter) * 1000
-          : Math.pow(2, attempt) * 1000; // exponential backoff
+          : Math.pow(2, attempt) * 1000;
 
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -105,7 +107,6 @@ async function callOpenAICompat(
         }
       }
 
-      // Handle other errors
       if (response.status === 401) {
         throw new Error(
           `AI API authentication failed. Please check your API key.`,
@@ -115,7 +116,6 @@ async function callOpenAICompat(
           `AI API access forbidden. Please check your API key permissions.`,
         );
       } else if (response.status >= 500) {
-        // Retry server errors
         if (attempt < maxRetries) {
           await new Promise((resolve) =>
             setTimeout(resolve, Math.pow(2, attempt) * 1000),
@@ -205,7 +205,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
       );
     }
 
-    // Remove common AI preamble patterns
     suggestion = suggestion
       .replace(
         /^(here|this|the)\s+(text|passage|sentence|paragraph)\s+(is|shows|demonstrates|illustrates|continues)/i,
@@ -217,7 +216,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
       )
       .trim();
 
-    // Safeguard: if post-processing emptied the suggestion, use a fallback
     if (!suggestion) {
       console.log(
         "[DEBUG] Suggestion was emptied by post-processing, using fallback",
@@ -233,7 +231,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   res.json(AutocompleteResponse.parse({ suggestion, alternative: null }));
 });
 
-// Helper to create model provider based on settings
 function createModelProvider(settings: {
   provider: string;
   apiKey: string;
@@ -255,6 +252,11 @@ function createModelProvider(settings: {
         apiKey,
         baseURL: baseUrl ?? "https://api.moonshot.cn/v1",
       })(model);
+    case "ollama":
+      return createOpenAI({
+        apiKey,
+        baseURL: baseUrl ?? "http://localhost:11434/v1",
+      })(model);
     default:
       return createOpenAI({
         apiKey,
@@ -263,7 +265,6 @@ function createModelProvider(settings: {
   }
 }
 
-// Streaming autocomplete endpoint
 router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
   const parsed = AutocompleteBody.safeParse(req.body);
   if (!parsed.success) {
@@ -500,6 +501,45 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
   }
 
   res.json(GenerateOutlineResponse.parse(outlineData));
+});
+
+router.get("/ai/models", async (req, res): Promise<void> => {
+  try {
+    const settings = await getSettings();
+    if (!settings) {
+      res.status(500).json({ error: "Settings not configured" });
+      return;
+    }
+
+    const provider = (req.query.provider as string) ?? settings.provider;
+    const queryBaseUrl = (req.query.baseUrl as string) ?? settings.baseUrl;
+
+    if (provider === "ollama") {
+      const ollamaUrl = queryBaseUrl ?? "http://localhost:11434";
+      const baseUrlWithoutV1 = ollamaUrl.replace(/\/v1$/, "");
+      const response = await fetch(`${baseUrlWithoutV1}/api/tags`);
+
+      if (!response.ok) {
+        res.status(500).json({
+          error:
+            "Failed to fetch models from Ollama. Make sure Ollama is running.",
+        });
+        return;
+      }
+
+      const data = (await response.json()) as {
+        models?: Array<{ name: string }>;
+      };
+      const models = (data.models ?? []).map((m) => m.name);
+      res.json({ models });
+      return;
+    }
+
+    res.json({ models: [settings.model] });
+  } catch (error) {
+    console.error("Error fetching AI models:", error);
+    res.status(500).json({ error: "Failed to fetch available models" });
+  }
 });
 
 export default router;

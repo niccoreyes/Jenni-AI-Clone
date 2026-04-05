@@ -22,7 +22,8 @@ graph TB
         AI2[Anthropic]
         AI3[Moonshot / Kimi]
         AI4[OpenRouter]
-        AI5[Custom Endpoint]
+        AI5[Ollama (Local)]
+        AI6[Custom Endpoint]
     end
 
     FE -- "HTTP /api/*" --> API
@@ -31,7 +32,8 @@ graph TB
     API -- "Vercel AI SDK" --> AI2
     API -- "Vercel AI SDK" --> AI3
     API -- "Vercel AI SDK" --> AI4
-    API -- "HTTP" --> AI5
+    API -- "Vercel AI SDK" --> AI5
+    API -- "HTTP" --> AI6
 
     style FE fill:#61dafb
     style API fill:#68a063
@@ -124,6 +126,7 @@ flowchart TD
 ```
 
 **Benefits of this approach:**
+
 - **Type safety end-to-end** — change the OpenAPI spec, regenerate, and both frontend and backend types update automatically
 - **No manual sync** — API contracts are enforced, not hoped-for
 - **Zero handwritten boilerplate** — validators, types, and hooks are all generated
@@ -195,6 +198,7 @@ erDiagram
 ```
 
 **Key design decisions:**
+
 - **`settings` is a singleton table** — only one row exists, storing the user's AI provider config, API key, and feature toggles
 - **`word_count` is auto-calculated** on document create/update from `content.split(/\s+/).length`
 - **Citations link to PDFs** via `pdf_id` foreign key, enabling reference tracking
@@ -234,6 +238,7 @@ sequenceDiagram
 ```
 
 **How the proxy works:** `vite.config.ts` configures `server.proxy`:
+
 ```ts
 proxy: {
   '/api': {
@@ -335,6 +340,7 @@ sequenceDiagram
 ```
 
 **Key details:**
+
 - **Non-streaming fallback**: `/api/ai/autocomplete` uses `fetch` with retries, exponential backoff, and rate limit handling (429 → retry-after)
 - **System prompt**: "You are an academic writing assistant. Continue the text naturally in the same style and tone."
 - **Multi-provider**: The backend dynamically creates the correct `LanguageModel` based on the user's settings
@@ -371,14 +377,14 @@ graph TD
 
 ### Paraphrase Modes
 
-| Mode | Description |
-|------|-------------|
+| Mode       | Description                                |
+| ---------- | ------------------------------------------ |
 | `simplify` | Make text clearer and easier to understand |
-| `academic` | Elevate tone to formal academic style |
-| `expand` | Add detail and elaboration |
-| `shorten` | Condense while preserving meaning |
-| `active` | Convert to active voice |
-| `passive` | Convert to passive voice |
+| `academic` | Elevate tone to formal academic style      |
+| `expand`   | Add detail and elaboration                 |
+| `shorten`  | Condense while preserving meaning          |
+| `active`   | Convert to active voice                    |
+| `passive`  | Convert to passive voice                   |
 
 ---
 
@@ -414,13 +420,14 @@ graph TB
 
 **Environment variables:**
 
-| Service | Key Variables |
-|---------|--------------|
+| Service      | Key Variables                                                                  |
+| ------------ | ------------------------------------------------------------------------------ |
 | `api-server` | `PORT=3001`, `DATABASE_URL=postgres://jenni:jennipass@postgres:5432/openjenni` |
-| `frontend` | `API_SERVER=http://api-server:3001` |
-| `postgres` | `POSTGRES_USER=jenni`, `POSTGRES_PASSWORD=jennipass`, `POSTGRES_DB=openjenni` |
+| `frontend`   | `API_SERVER=http://api-server:3001`                                            |
+| `postgres`   | `POSTGRES_USER=jenni`, `POSTGRES_PASSWORD=jennipass`, `POSTGRES_DB=openjenni`  |
 
 **Startup sequence** (`scripts/start-api.sh`):
+
 1. Wait for PostgreSQL to be ready (retry loop)
 2. Apply DB schema via `drizzle-kit push`
 3. Start Express server with `node dist/index.mjs`
@@ -462,22 +469,22 @@ sequenceDiagram
 
 ## Technology Stack Summary
 
-| Layer | Technology |
-|-------|-----------|
-| **Frontend Framework** | React 19.1 + Vite 7 |
-| **Styling** | Tailwind CSS v4 + shadcn/ui (55 Radix UI primitives) |
-| **Routing** | wouter (lightweight) |
-| **Data Fetching** | TanStack React Query v5 (generated hooks) |
-| **AI Integration** | Vercel AI SDK v6 + `@ai-sdk/react` |
-| **Backend Framework** | Express 5 (ESM, esbuild bundled) |
-| **Database ORM** | Drizzle ORM + node-postgres |
-| **Validation** | Zod (generated from OpenAPI) |
-| **API Spec** | OpenAPI 3.1 + Orval codegen |
-| **Logging** | Pino + pino-http |
-| **File Uploads** | Multer (20MB PDF limit) |
-| **Containerization** | Docker Compose (3 services) |
-| **Package Manager** | pnpm workspaces + catalog |
-| **AI Providers** | OpenAI, Anthropic, Moonshot (Kimi), OpenRouter, Custom |
+| Layer                  | Technology                                                             |
+| ---------------------- | ---------------------------------------------------------------------- |
+| **Frontend Framework** | React 19.1 + Vite 7                                                    |
+| **Styling**            | Tailwind CSS v4 + shadcn/ui (55 Radix UI primitives)                   |
+| **Routing**            | wouter (lightweight)                                                   |
+| **Data Fetching**      | TanStack React Query v5 (generated hooks)                              |
+| **AI Integration**     | Vercel AI SDK v6 + `@ai-sdk/react`                                     |
+| **Backend Framework**  | Express 5 (ESM, esbuild bundled)                                       |
+| **Database ORM**       | Drizzle ORM + node-postgres                                            |
+| **Validation**         | Zod (generated from OpenAPI)                                           |
+| **API Spec**           | OpenAPI 3.1 + Orval codegen                                            |
+| **Logging**            | Pino + pino-http                                                       |
+| **File Uploads**       | Multer (20MB PDF limit)                                                |
+| **Containerization**   | Docker Compose (3 services)                                            |
+| **Package Manager**    | pnpm workspaces + catalog                                              |
+| **AI Providers**       | OpenAI, Anthropic, Moonshot (Kimi), OpenRouter, Ollama (Local), Custom |
 
 ---
 

@@ -214,6 +214,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/OutlineResult"
 
+  /ai/models:
+    get:
+      operationId: getAiModels
+      tags: [ai]
+      summary: List available models for current provider
+      description: Returns available models from the configured AI provider. For Ollama, fetches local models dynamically.
+      responses:
+        "200":
+          description: List of available model names
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiModelsResponse"
+        "500":
+          description: Provider not configured or unreachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
   /citations:
     get:
       operationId: listCitations
@@ -704,7 +727,7 @@ components:
           type: integer
         provider:
           type: string
-          enum: [openai, anthropic, moonshot, openrouter, custom]
+          enum: [openai, anthropic, moonshot, openrouter, ollama, custom]
         apiKey:
           type: string
           nullable: true
@@ -751,7 +774,7 @@ components:
       properties:
         provider:
           type: string
-          enum: [openai, anthropic, moonshot, openrouter, custom]
+          enum: [openai, anthropic, moonshot, openrouter, ollama, custom]
         apiKey:
           type: string
           nullable: true
