@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCompletion } from "@ai-sdk/react";
+import { useCompletion, useChat } from "@ai-sdk/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight, MessageSquare, FileText, List, Quote } from "lucide-react";
 import {
@@ -287,7 +287,25 @@ export default function Editor() {
   }, [docId, triggerAutocomplete, stopAutocomplete]);
 
   const paraphrase = useParaphrase();
-  const aiChat = useAiChat();
+  const {
+    messages: chatMessages,
+    input: chatInput,
+    handleInputChange: handleChatInputChange,
+    handleSubmit: handleChatSubmit,
+    isLoading: isChatLoading,
+    setInput: setChatInput,
+  } = useChat({
+    api: `/api/ai/chat/stream`,
+    streamProtocol: "text",
+    onError: (error) => {
+      console.error("Chat error:", error);
+      toast({
+        title: "Chat failed",
+        description: error?.message || "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
   const generateOutline = useGenerateOutline();
   const createCitation = useCreateCitation({
     mutation: {

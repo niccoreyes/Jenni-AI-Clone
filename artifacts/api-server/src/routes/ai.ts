@@ -393,6 +393,114 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   res.json(AiChatResponse.parse({ response, citations: [] }));
 });
 
+router.post("/ai/chat/stream", async (req, res): Promise<void> => {
+  const parsed = AiChatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const settings = await getSettings();
+  const configuredSettings = settings ?? {
+    provider: "openai",
+    model: "gpt-4o-mini",
+  };
+
+  const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
+
+  try {
+    if (!configuredSettings.apiKey) {
+      res.status(400).json({ error: "API key not configured" });
+      return;
+    }
+
+    const model = createModelProvider({
+      provider: configuredSettings.provider,
+      model: configuredSettings.model,
+      apiKey: configuredSettings.apiKey,
+      baseUrl: configuredSettings.baseUrl ?? undefined,
+    });
+
+    const messages = [
+      ...(parsed.data.history ?? []).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: "user", content: parsed.data.message },
+    ];
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: messages as any,
+      temperature: 0.7,
+      maxTokens: 4096,
+    } as any);
+
+    pipeTextStreamToResponse({
+      response: res,
+      textStream: result.textStream,
+    });
+  } catch (error) {
+    console.error("Chat streaming error:", error);
+    res.status(500).json({ error: "Streaming failed" });
+  }
+});
+
+router.post("/ai/chat/stream", async (req, res): Promise<void> => {
+  const parsed = AiChatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const settings = await getSettings();
+  const configuredSettings = settings ?? {
+    provider: "openai",
+    model: "gpt-4o-mini",
+  };
+
+  const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
+
+  try {
+    if (!configuredSettings.apiKey) {
+      res.status(400).json({ error: "API key not configured" });
+      return;
+    }
+
+    const model = createModelProvider({
+      provider: configuredSettings.provider,
+      model: configuredSettings.model,
+      apiKey: configuredSettings.apiKey,
+      baseUrl: configuredSettings.baseUrl ?? undefined,
+    });
+
+    const messages = [
+      ...(parsed.data.history ?? []).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: "user", content: parsed.data.message },
+    ];
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: messages as any,
+      temperature: 0.7,
+      maxTokens: 4096,
+    } as any);
+
+    pipeTextStreamToResponse({
+      response: res,
+      textStream: result.textStream,
+    });
+  } catch (error) {
+    console.error("Chat streaming error:", error);
+    res.status(500).json({ error: "Streaming failed" });
+  }
+});
+
 router.post("/ai/outline", async (req, res): Promise<void> => {
   const parsed = GenerateOutlineBody.safeParse(req.body);
   if (!parsed.success) {
