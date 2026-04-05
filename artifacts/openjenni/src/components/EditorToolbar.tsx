@@ -33,7 +33,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const CITATION_STYLES = [
   { value: "APA7", label: "APA 7th" },
@@ -253,39 +252,64 @@ export default function EditorToolbar({
 
       <div className="flex-1" />
 
-      <ToggleGroup
-        type="single"
-        value={viewMode}
-        onValueChange={(value) => value && onViewModeChange(value as ViewMode)}
-        className="gap-0 border border-border rounded-md"
-      >
-        <ToggleGroupItem
-          value="prose"
-          className="h-7 px-2 text-xs gap-1 rounded-none border-0 first:rounded-l-md"
-          aria-label="Prose view"
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Prose</span>
-        </ToggleGroupItem>
-        <ToggleGroupItem
-          value="paper"
-          className="h-7 px-2 text-xs gap-1 rounded-none border-0 border-l border-r border-border"
-          aria-label="Paper view"
-        >
-          <FileText className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Paper</span>
-        </ToggleGroupItem>
-        <ToggleGroupItem
-          value="full"
-          className="h-7 px-2 text-xs gap-1 rounded-none border-0 last:rounded-r-md"
-          aria-label="Full width view"
-        >
-          <Monitor className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Full</span>
-        </ToggleGroupItem>
-      </ToggleGroup>
+      <div className="flex items-center border border-border rounded-md overflow-hidden">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onViewModeChange("prose")}
+                className={`h-8 w-8 p-0 rounded-none ${viewMode === "prose" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                aria-label="Prose view"
+              >
+                <BookOpen className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Prose view
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onViewModeChange("paper")}
+                className={`h-8 w-8 p-0 rounded-none border-l border-r border-border ${viewMode === "paper" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                aria-label="Paper view"
+              >
+                <FileText className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Paper view
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onViewModeChange("full")}
+                className={`h-8 w-8 p-0 rounded-none ${viewMode === "full" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"}`}
+                aria-label="Full width view"
+              >
+                <Monitor className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              Full width view
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
-      <span className="text-xs text-muted-foreground tabular-nums ml-2">
+      <span className="text-xs text-muted-foreground tabular-nums">
         {wordCount.toLocaleString()} words
       </span>
     </div>
