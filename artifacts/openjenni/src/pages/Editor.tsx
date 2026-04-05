@@ -94,7 +94,6 @@ export default function Editor() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const [ghostPosition, setGhostPosition] = useState(0);
-  const hasInitializedRef = useRef<number | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const scrollThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -114,25 +113,19 @@ export default function Editor() {
     }
   }, []);
 
-  // Cleanup throttle timer on unmount
+  // Reset local state when document ID changes
   useEffect(() => {
-    return () => {
-      if (scrollThrottleTimerRef.current) {
-        clearTimeout(scrollThrottleTimerRef.current);
-      }
-    };
-  }, []);
-
-  // Reset initialization flag when document ID changes
-  useEffect(() => {
-    hasInitializedRef.current = null;
     setContent("");
     setTitle("");
     setGhostText("");
   }, [docId]);
 
   const { data: doc, isLoading } = useGetDocument(docId, {
-    query: { enabled: !!docId, queryKey: getGetDocumentQueryKey(docId) },
+    query: {
+      enabled: !!docId,
+      queryKey: getGetDocumentQueryKey(docId),
+      refetchOnMount: true,
+    },
   });
 
   const { data: citations } = useListCitations(
@@ -149,27 +142,10 @@ export default function Editor() {
     query: { queryKey: getListPdfsQueryKey() },
   });
 
-  useEffect(() => {
-    if (doc && !hasInitializedRef.current) {
-      setContent(doc.content);
-      setTitle(doc.title);
-      setCitationStyle(
-        doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard",
-      );
-      hasInitializedRef.current = docId;
-    }
-  }, [doc, docId]);
-
-  useEffect(() => {
-    contentRef.current = content;
-  }, [content]);
-
   const updateDocument = useUpdateDocument({
     mutation: {
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: getGetDocumentQueryKey(docId),
-        });
+      onSuccess: (data) => {
+        queryClient.setQueryData(getGetDocumentQueryKey(docId), data);
         queryClient.invalidateQueries({ queryKey: getListDocumentsQueryKey() });
         queryClient.invalidateQueries({
           queryKey: getGetDocumentStatsQueryKey(),
@@ -177,6 +153,44 @@ export default function Editor() {
       },
     },
   });
+
+  // Cleanup timers and flush pending save on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollThrottleTimerRef.current) {
+        clearTimeout(scrollThrottleTimerRef.current);
+      }
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current);
+        const pendingContent = contentRef.current;
+        if (pendingContent && docId) {
+          updateDocument.mutate({
+            id: docId,
+            data: {
+              content: pendingContent,
+              title,
+              citationStyle,
+            },
+          });
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
+
+  useEffect(() => {
+    if (doc) {
+      setContent(doc.content);
+      setTitle(doc.title);
+      setCitationStyle(
+        doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard",
+      );
+    }
+  }, [doc, docId]);
+
+  useEffect(() => {
+    contentRef.current = content;
+  }, [content]);
 
   // Streaming autocomplete using Vercel AI SDK
   const {
