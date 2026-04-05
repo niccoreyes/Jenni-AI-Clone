@@ -63,8 +63,20 @@ const RichTextEditor = forwardRef<
     getSelectionRange: () => { from: number; to: number };
     insertText: (text: string) => void;
     getPlainText: () => string;
+    getHTML: () => string;
     getPageCount: () => number;
     insertPageBreak: () => void;
+    toggleBold: () => void;
+    toggleItalic: () => void;
+    toggleUnderline: () => void;
+    toggleHeading: (level: 1 | 2 | 3) => void;
+    toggleBlockquote: () => void;
+    toggleBulletList: () => void;
+    toggleOrderedList: () => void;
+    setTextAlign: (align: "left" | "center" | "right") => void;
+    undo: () => void;
+    redo: () => void;
+    focus: () => void;
   },
   RichTextEditorProps
 >(
@@ -148,12 +160,60 @@ const RichTextEditor = forwardRef<
         if (!editor) return "";
         return editor.getText();
       },
+      getHTML: () => {
+        if (!editor) return "";
+        return editor.getHTML();
+      },
       getPageCount: () => {
         return countPages(editor);
       },
       insertPageBreak: () => {
         if (!editor) return;
         editor.commands.setPageBreak();
+      },
+      toggleBold: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleBold().run();
+      },
+      toggleItalic: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleItalic().run();
+      },
+      toggleUnderline: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleUnderline().run();
+      },
+      toggleHeading: (level: 1 | 2 | 3) => {
+        if (!editor) return;
+        editor.chain().focus().toggleHeading({ level }).run();
+      },
+      toggleBlockquote: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleBlockquote().run();
+      },
+      toggleBulletList: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleBulletList().run();
+      },
+      toggleOrderedList: () => {
+        if (!editor) return;
+        editor.chain().focus().toggleOrderedList().run();
+      },
+      setTextAlign: (align: "left" | "center" | "right") => {
+        if (!editor) return;
+        editor.chain().focus().setTextAlign(align).run();
+      },
+      undo: () => {
+        if (!editor) return;
+        editor.chain().focus().undo().run();
+      },
+      redo: () => {
+        if (!editor) return;
+        editor.chain().focus().redo().run();
+      },
+      focus: () => {
+        if (!editor) return;
+        editor.chain().focus().run();
       },
     }));
 

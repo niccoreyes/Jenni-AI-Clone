@@ -97,8 +97,9 @@ const ToolbarButton = ({
           size="sm"
           className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
           onClick={onClick}
+          aria-label={label}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </Button>
       </TooltipTrigger>
       <TooltipContent side="bottom" className="text-xs">

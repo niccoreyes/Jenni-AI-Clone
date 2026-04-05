@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCompletion, useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight, MessageSquare, FileText, List, Quote } from "lucide-react";
 import {
@@ -9,7 +10,6 @@ import {
   getGetDocumentQueryKey,
   useUpdateDocument,
   useParaphrase,
-  useAiChat,
   useGenerateOutline,
   useListCitations,
   getListCitationsQueryKey,
@@ -74,7 +74,6 @@ export default function Editor() {
     "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard"
   >("APA7");
   const [activeTab, setActiveTab] = useState<SidebarTab>("chat");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [outlineResult, setOutlineResult] = useState<OutlineSection[]>([]);
   const [outlineTopic, setOutlineTopic] = useState("");
   const [outlineThesis, setOutlineThesis] = useState("");
@@ -96,8 +95,20 @@ export default function Editor() {
     getSelectionRange: () => { from: number; to: number };
     insertText: (text: string) => void;
     getPlainText: () => string;
+    getHTML: () => string;
     getPageCount: () => number;
     insertPageBreak: () => void;
+    toggleBold: () => void;
+    toggleItalic: () => void;
+    toggleUnderline: () => void;
+    toggleHeading: (level: 1 | 2 | 3) => void;
+    toggleBlockquote: () => void;
+    toggleBulletList: () => void;
+    toggleOrderedList: () => void;
+    setTextAlign: (align: "left" | "center" | "right") => void;
+    undo: () => void;
+    redo: () => void;
+    focus: () => void;
   }>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
@@ -162,8 +173,8 @@ export default function Editor() {
             id: docId,
             data: {
               content: pendingContent,
-              title,
-              citationStyle,
+              title: titleRef.current,
+              citationStyle: citationStyleRef.current,
             },
           });
         }
@@ -254,6 +265,14 @@ export default function Editor() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if editor is focused - look for contenteditable element
+      const activeElement = document.activeElement;
+      const isEditorFocused =
+        activeElement?.getAttribute("contenteditable") === "true";
+
+      // Only handle shortcuts when editor is focused
+      if (!isEditorFocused) return;
+
       if ((e.ctrlKey || e.metaKey) && e.key === "j") {
         e.preventDefault();
         if (isAutocompleteLoadingRef.current) return;
@@ -287,16 +306,21 @@ export default function Editor() {
   }, [docId, triggerAutocomplete, stopAutocomplete]);
 
   const paraphrase = useParaphrase();
+  const chatTransportRef = useRef<DefaultChatTransport<any> | null>(null);
+  if (!chatTransportRef.current) {
+    chatTransportRef.current = new DefaultChatTransport({
+      api: `/api/ai/chat/stream`,
+    });
+  }
   const {
     messages: chatMessages,
-    input: chatInput,
-    handleInputChange: handleChatInputChange,
-    handleSubmit: handleChatSubmit,
-    isLoading: isChatLoading,
-    setInput: setChatInput,
+    sendMessage,
+    status: chatStatus,
+    error: chatError,
+    stop: stopChat,
+    setMessages: setChatMessages,
   } = useChat({
-    api: `/api/ai/chat/stream`,
-    streamProtocol: "text",
+    transport: chatTransportRef.current,
     onError: (error) => {
       console.error("Chat error:", error);
       toast({
@@ -306,6 +330,8 @@ export default function Editor() {
       });
     },
   });
+  const isChatLoading =
+    chatStatus === "streaming" || chatStatus === "submitted";
   const generateOutline = useGenerateOutline();
   const createCitation = useCreateCitation({
     mutation: {
@@ -408,24 +434,50 @@ export default function Editor() {
     const editor = richTextEditorRef.current;
     if (!editor) return;
 
-    const commands: Record<FormatAction, () => void> = {
-      bold: () => document.execCommand("bold", false),
-      italic: () => document.execCommand("italic", false),
-      underline: () => document.execCommand("underline", false),
-      h1: () => document.execCommand("formatBlock", false, "h1"),
-      h2: () => document.execCommand("formatBlock", false, "h2"),
-      h3: () => document.execCommand("formatBlock", false, "h3"),
-      quote: () => document.execCommand("formatBlock", false, "blockquote"),
-      ul: () => document.execCommand("insertUnorderedList", false),
-      ol: () => document.execCommand("insertOrderedList", false),
-      alignLeft: () => document.execCommand("justifyLeft", false),
-      alignCenter: () => document.execCommand("justifyCenter", false),
-      alignRight: () => document.execCommand("justifyRight", false),
-      undo: () => document.execCommand("undo", false),
-      redo: () => document.execCommand("redo", false),
-    };
-
-    commands[action]?.();
+    switch (action) {
+      case "bold":
+        editor.toggleBold();
+        break;
+      case "italic":
+        editor.toggleItalic();
+        break;
+      case "underline":
+        editor.toggleUnderline();
+        break;
+      case "h1":
+        editor.toggleHeading(1);
+        break;
+      case "h2":
+        editor.toggleHeading(2);
+        break;
+      case "h3":
+        editor.toggleHeading(3);
+        break;
+      case "quote":
+        editor.toggleBlockquote();
+        break;
+      case "ul":
+        editor.toggleBulletList();
+        break;
+      case "ol":
+        editor.toggleOrderedList();
+        break;
+      case "alignLeft":
+        editor.setTextAlign("left");
+        break;
+      case "alignCenter":
+        editor.setTextAlign("center");
+        break;
+      case "alignRight":
+        editor.setTextAlign("right");
+        break;
+      case "undo":
+        editor.undo();
+        break;
+      case "redo":
+        editor.redo();
+        break;
+    }
   };
 
   const handleSelectionChange = useCallback(() => {
@@ -466,7 +518,9 @@ export default function Editor() {
     setParaphraseOpen(false);
     setParaphraseResult("");
     setSelectedText("");
-    scheduleSave(contentRef.current, title, citationStyle);
+    // Get fresh content from editor after insertion
+    const freshContent = richTextEditorRef.current?.getHTML() ?? "";
+    scheduleSave(freshContent, titleRef.current, citationStyleRef.current);
   };
 
   const handleGenerateOutline = () => {
@@ -794,44 +848,45 @@ export default function Editor() {
               <div className="flex-1 overflow-y-auto">
                 {activeTab === "chat" && (
                   <AiChatPanel
-                    messages={chatMessages}
-                    onSendMessage={(msg) => {
-                      const userMsg: ChatMessage = {
-                        role: "user",
-                        content: msg,
+                    messages={chatMessages.map((msg) => {
+                      const textContent =
+                        typeof msg.content === "string"
+                          ? msg.content
+                          : msg.content
+                              .filter((part: any) => part.type === "text")
+                              .map((part: any) => part.text)
+                              .join("");
+                      return {
+                        role: msg.role as "user" | "assistant",
+                        content: textContent,
                       };
-                      setChatMessages((prev) => [...prev, userMsg]);
+                    })}
+                    onSendMessage={(msg) => {
                       const context = plainTextRef.current.slice(-500);
-                      aiChat.mutate(
+                      const historyMessages = chatMessages
+                        .slice(-6)
+                        .map((m: any) => ({
+                          role: m.role,
+                          content:
+                            typeof m.content === "string"
+                              ? m.content
+                              : m.content
+                                  .filter((p: any) => p.type === "text")
+                                  .map((p: any) => p.text)
+                                  .join(""),
+                        }));
+                      sendMessage(
+                        { text: msg },
                         {
-                          data: {
-                            message: msg,
+                          body: {
                             documentId: docId,
                             documentContext: context,
-                            history: chatMessages.slice(-6),
-                          },
-                        },
-                        {
-                          onSuccess: (result) => {
-                            setChatMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: result.response },
-                            ]);
-                          },
-                          onError: () => {
-                            setChatMessages((prev) => [
-                              ...prev,
-                              {
-                                role: "assistant",
-                                content:
-                                  "Failed to get response. Please check your API key in Settings.",
-                              },
-                            ]);
+                            history: historyMessages,
                           },
                         },
                       );
                     }}
-                    isTyping={aiChat.isPending}
+                    isTyping={isChatLoading}
                   />
                 )}
 

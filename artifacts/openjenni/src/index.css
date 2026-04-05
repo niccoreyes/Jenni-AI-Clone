@@ -509,7 +509,7 @@
   .paper-page {
     box-shadow: none;
     width: 100%;
-    page-break-after: always;
+    break-after: page;
   }
 
   .paper-page .page-number {

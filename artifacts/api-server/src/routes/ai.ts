@@ -59,8 +59,10 @@ async function callOpenAICompat(
   messages: Array<{ role: string; content: string }>,
   temperature: number = 0.7,
   maxRetries: number = 3,
+  provider?: string,
 ): Promise<string> {
-  if (!apiKey) {
+  // Ollama doesn't require an API key
+  if (!apiKey && provider !== "ollama") {
     return generateFallbackResponse(
       messages[messages.length - 1]?.content ?? "",
     );
@@ -164,6 +166,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -174,7 +177,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   const lastSentence = parsed.data.currentText.split(/[.!?;\n]+/).pop() || "";
 
   let suggestion = "";
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     suggestion = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -187,6 +190,8 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
         },
       ],
       0.2,
+      3,
+      provider,
     );
     console.log("[DEBUG] lastSentence:", JSON.stringify(lastSentence));
     console.log("[DEBUG] suggestion before:", JSON.stringify(suggestion));
@@ -283,7 +288,8 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
   const lastChunk = parsed.data.currentText.slice(-1000);
 
   try {
-    if (!configuredSettings.apiKey) {
+    // Ollama doesn't require an API key
+    if (!configuredSettings.apiKey && configuredSettings.provider !== "ollama") {
       res.status(400).json({ error: "API key not configured" });
       return;
     }
@@ -291,7 +297,7 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
     const model = createModelProvider({
       provider: configuredSettings.provider,
       model: configuredSettings.model,
-      apiKey: configuredSettings.apiKey,
+      apiKey: configuredSettings.apiKey || "ollama", // dummy key for Ollama
       baseUrl: configuredSettings.baseUrl ?? undefined,
     });
 
@@ -321,6 +327,7 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -341,7 +348,7 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
     modeInstructions[parsed.data.mode] ?? modeInstructions.academic;
 
   let result = "";
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     result = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -354,6 +361,8 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
         { role: "user", content: parsed.data.text },
       ],
       0.4,
+      3,
+      provider,
     );
   } else {
     result = `[${parsed.data.mode.toUpperCase()} MODE] ${parsed.data.text}`;
@@ -370,6 +379,7 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -383,8 +393,8 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   ];
 
   let response = "";
-  if (apiKey) {
-    response = await callOpenAICompat(endpoint, apiKey, model, messages, 0.7);
+  if (apiKey || provider === "ollama") {
+    response = await callOpenAICompat(endpoint, apiKey, model, messages, 0.7, 3, provider);
   } else {
     response =
       "To use the AI chat feature, please configure your API key in Settings. I can help you analyze your document, find research gaps, generate outlines, and suggest citations once connected.";
@@ -409,7 +419,8 @@ router.post("/ai/chat/stream", async (req, res): Promise<void> => {
   const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
 
   try {
-    if (!configuredSettings.apiKey) {
+    // Ollama doesn't require an API key
+    if (!configuredSettings.apiKey && configuredSettings.provider !== "ollama") {
       res.status(400).json({ error: "API key not configured" });
       return;
     }
@@ -417,61 +428,7 @@ router.post("/ai/chat/stream", async (req, res): Promise<void> => {
     const model = createModelProvider({
       provider: configuredSettings.provider,
       model: configuredSettings.model,
-      apiKey: configuredSettings.apiKey,
-      baseUrl: configuredSettings.baseUrl ?? undefined,
-    });
-
-    const messages = [
-      ...(parsed.data.history ?? []).map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      })),
-      { role: "user", content: parsed.data.message },
-    ];
-
-    const result = streamText({
-      model,
-      system: systemPrompt,
-      messages: messages as any,
-      temperature: 0.7,
-      maxTokens: 4096,
-    } as any);
-
-    pipeTextStreamToResponse({
-      response: res,
-      textStream: result.textStream,
-    });
-  } catch (error) {
-    console.error("Chat streaming error:", error);
-    res.status(500).json({ error: "Streaming failed" });
-  }
-});
-
-router.post("/ai/chat/stream", async (req, res): Promise<void> => {
-  const parsed = AiChatBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
-  const settings = await getSettings();
-  const configuredSettings = settings ?? {
-    provider: "openai",
-    model: "gpt-4o-mini",
-  };
-
-  const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
-
-  try {
-    if (!configuredSettings.apiKey) {
-      res.status(400).json({ error: "API key not configured" });
-      return;
-    }
-
-    const model = createModelProvider({
-      provider: configuredSettings.provider,
-      model: configuredSettings.model,
-      apiKey: configuredSettings.apiKey,
+      apiKey: configuredSettings.apiKey || "ollama", // dummy key for Ollama
       baseUrl: configuredSettings.baseUrl ?? undefined,
     });
 
@@ -509,6 +466,7 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -523,7 +481,7 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
 }`;
 
   let outlineData;
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     const raw = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -536,6 +494,8 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
         },
       ],
       0.3,
+      3,
+      provider,
     );
     try {
       const match = raw.match(/\{[\s\S]*\}/);
@@ -614,13 +574,16 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
 router.get("/ai/models", async (req, res): Promise<void> => {
   try {
     const settings = await getSettings();
-    if (!settings) {
-      res.status(500).json({ error: "Settings not configured" });
+
+    // Use query params if provided, fall back to settings
+    const provider = (req.query.provider as string) ?? settings?.provider;
+    const queryBaseUrl = (req.query.baseUrl as string) ?? settings?.baseUrl;
+
+    // Require either query params or settings
+    if (!provider) {
+      res.status(400).json({ error: "Provider not specified" });
       return;
     }
-
-    const provider = (req.query.provider as string) ?? settings.provider;
-    const queryBaseUrl = (req.query.baseUrl as string) ?? settings.baseUrl;
 
     if (provider === "ollama") {
       const ollamaUrl = queryBaseUrl ?? "http://localhost:11434";
@@ -643,7 +606,8 @@ router.get("/ai/models", async (req, res): Promise<void> => {
       return;
     }
 
-    res.json({ models: [settings.model] });
+    // For non-Ollama providers, return the configured model or empty array
+    res.json({ models: settings?.model ? [settings.model] : [] });
   } catch (error) {
     console.error("Error fetching AI models:", error);
     res.status(500).json({ error: "Failed to fetch available models" });

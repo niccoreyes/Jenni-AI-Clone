@@ -220,6 +220,21 @@ paths:
       tags: [ai]
       summary: List available models for current provider
       description: Returns available models from the configured AI provider. For Ollama, fetches local models dynamically.
+      parameters:
+        - name: provider
+          in: query
+          required: false
+          description: AI provider to fetch models for (e.g., ollama)
+          schema:
+            type: string
+            example: ollama
+        - name: baseUrl
+          in: query
+          required: false
+          description: Base URL for the AI provider (for Ollama)
+          schema:
+            type: string
+            example: http://localhost:11434/v1
       responses:
         "200":
           description: List of available model names
