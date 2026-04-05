@@ -16,6 +16,8 @@ import {
   BookOpen,
   Sparkles,
   ChevronDown,
+  FileText,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +33,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 const CITATION_STYLES = [
   { value: "APA7", label: "APA 7th" },
@@ -64,12 +67,16 @@ type FormatAction =
   | "undo"
   | "redo";
 
+import type { ViewMode } from "./RichTextEditor";
+
 interface EditorToolbarProps {
   citationStyle: string;
   onCitationStyleChange: (style: string) => void;
   wordCount: number;
   onAiCommand: (command: string) => void;
   onFormat: (action: FormatAction) => void;
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
 }
 
 const ToolbarButton = ({
@@ -106,6 +113,8 @@ export default function EditorToolbar({
   wordCount,
   onAiCommand,
   onFormat,
+  viewMode,
+  onViewModeChange,
 }: EditorToolbarProps) {
   const citationLabel =
     CITATION_STYLES.find((s) => s.value === citationStyle)?.label ??
@@ -244,7 +253,39 @@ export default function EditorToolbar({
 
       <div className="flex-1" />
 
-      <span className="text-xs text-muted-foreground tabular-nums">
+      <ToggleGroup
+        type="single"
+        value={viewMode}
+        onValueChange={(value) => value && onViewModeChange(value as ViewMode)}
+        className="gap-0 border border-border rounded-md"
+      >
+        <ToggleGroupItem
+          value="prose"
+          className="h-7 px-2 text-xs gap-1 rounded-none border-0 first:rounded-l-md"
+          aria-label="Prose view"
+        >
+          <BookOpen className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Prose</span>
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="paper"
+          className="h-7 px-2 text-xs gap-1 rounded-none border-0 border-l border-r border-border"
+          aria-label="Paper view"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Paper</span>
+        </ToggleGroupItem>
+        <ToggleGroupItem
+          value="full"
+          className="h-7 px-2 text-xs gap-1 rounded-none border-0 last:rounded-r-md"
+          aria-label="Full width view"
+        >
+          <Monitor className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Full</span>
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      <span className="text-xs text-muted-foreground tabular-nums ml-2">
         {wordCount.toLocaleString()} words
       </span>
     </div>

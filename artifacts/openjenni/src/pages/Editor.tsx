@@ -42,7 +42,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import AiChatPanel from "@/components/AiChatPanel";
 import EditorToolbar from "@/components/EditorToolbar";
-import RichTextEditor, { FormatAction } from "@/components/RichTextEditor";
+import RichTextEditor, {
+  FormatAction,
+  ViewMode,
+} from "@/components/RichTextEditor";
 
 type SidebarTab = "chat" | "citations" | "pdfs" | "outline";
 
@@ -97,6 +100,7 @@ export default function Editor() {
   const contentRef = useRef(content);
   const [plainText, setPlainText] = useState("");
   const plainTextRef = useRef("");
+  const [viewMode, setViewMode] = useState<ViewMode>("prose");
 
   useEffect(() => {
     setContent("");
@@ -166,6 +170,8 @@ export default function Editor() {
       setCitationStyle(
         doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard",
       );
+      const saved = localStorage.getItem(`viewMode-${docId}`);
+      setViewMode((saved as ViewMode) ?? doc.viewMode ?? "prose");
     }
   }, [doc, docId]);
 
@@ -262,6 +268,15 @@ export default function Editor() {
   const handleStyleChange = (val: string) => {
     setCitationStyle(val as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard");
     scheduleSave(content, title, val);
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(`viewMode-${docId}`, mode);
+    updateDocument.mutate({
+      id: docId,
+      data: { viewMode: mode },
+    });
   };
 
   const handleFormat = (action: FormatAction) => {
@@ -499,6 +514,8 @@ export default function Editor() {
               }
             }}
             onFormat={handleFormat}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
           />
 
           {selectedText && (
@@ -542,6 +559,7 @@ export default function Editor() {
               content={content}
               onChange={handleContentChange}
               placeholder="Start writing your document..."
+              viewMode={viewMode}
             />
           </div>
 

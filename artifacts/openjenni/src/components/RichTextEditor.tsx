@@ -21,10 +21,13 @@ export type FormatAction =
   | "undo"
   | "redo";
 
+export type ViewMode = "prose" | "paper" | "full";
+
 interface RichTextEditorProps {
   content: string;
   onChange: (html: string, text: string) => void;
   placeholder?: string;
+  viewMode?: ViewMode;
   editorRef?: React.RefObject<{
     getSelectedText: () => string;
     getSelectionRange: () => { from: number; to: number };
@@ -43,7 +46,12 @@ const RichTextEditor = forwardRef<
   RichTextEditorProps
 >(
   (
-    { content, onChange, placeholder = "Start writing your document..." },
+    {
+      content,
+      onChange,
+      placeholder = "Start writing your document...",
+      viewMode = "prose",
+    },
     ref,
   ) => {
     const editor = useEditor({
@@ -65,7 +73,11 @@ const RichTextEditor = forwardRef<
       editorProps: {
         attributes: {
           class:
-            "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-full font-serif text-base leading-relaxed p-6",
+            viewMode === "prose"
+              ? "prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-full font-serif text-base leading-relaxed p-6"
+              : viewMode === "paper"
+                ? "max-w-[816px] mx-auto focus:outline-none min-h-full font-serif text-base leading-relaxed p-16 bg-white shadow-lg rounded-sm"
+                : "max-w-none focus:outline-none min-h-full font-serif text-base leading-relaxed p-6",
         },
       },
       onUpdate: ({ editor }) => {
@@ -104,8 +116,13 @@ const RichTextEditor = forwardRef<
     if (!editor) return null;
 
     return (
-      <div className="h-full overflow-y-auto bg-background">
-        <EditorContent editor={editor} className="min-h-full" />
+      <div
+        className={`h-full overflow-y-auto ${viewMode === "paper" ? "bg-gray-100" : "bg-background"}`}
+      >
+        <EditorContent
+          editor={editor}
+          className={`min-h-full ${viewMode === "paper" ? "py-8" : ""}`}
+        />
       </div>
     );
   },

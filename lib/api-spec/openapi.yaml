@@ -357,6 +357,10 @@ components:
         fieldOfStudy:
           type: string
           nullable: true
+        viewMode:
+          type: string
+          enum: [prose, paper, full]
+          default: prose
         createdAt:
           type: string
           format: date-time
@@ -369,6 +373,7 @@ components:
         - content
         - citationStyle
         - wordCount
+        - viewMode
         - createdAt
         - updatedAt
 
@@ -388,6 +393,9 @@ components:
         fieldOfStudy:
           type: string
           nullable: true
+        viewMode:
+          type: string
+          enum: [prose, paper, full]
       required:
         - title
 
@@ -407,6 +415,9 @@ components:
         fieldOfStudy:
           type: string
           nullable: true
+        viewMode:
+          type: string
+          enum: [prose, paper, full]
 
     DocumentStats:
       type: object
