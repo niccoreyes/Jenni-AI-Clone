@@ -299,8 +299,8 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
       model,
       system: systemPrompt,
       prompt: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:`,
-      temperature: 0.2,
-      maxTokens: 512,
+      temperature: 0.5,
+      maxTokens: 10,
     } as any);
 
     pipeTextStreamToResponse({

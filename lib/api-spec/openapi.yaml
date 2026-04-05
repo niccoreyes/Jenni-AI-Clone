@@ -797,3 +797,13 @@ components:
           type: boolean
         pdfChatEnabled:
           type: boolean
+
+    AiModelsResponse:
+      type: object
+      properties:
+        models:
+          type: array
+          items:
+            type: string
+      required:
+        - models

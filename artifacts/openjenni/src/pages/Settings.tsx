@@ -5,6 +5,7 @@ import {
   useGetSettings,
   getGetSettingsQueryKey,
   useUpdateSettings,
+  UpdateSettingsBodyProvider,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -189,13 +190,7 @@ export default function Settings() {
   const handleSave = () => {
     updateSettings.mutate({
       data: {
-        provider: form.provider as
-          | "openai"
-          | "anthropic"
-          | "moonshot"
-          | "openrouter"
-          | "ollama"
-          | "custom",
+        provider: form.provider as UpdateSettingsBodyProvider,
         apiKey: form.apiKey || null,
         baseUrl: form.baseUrl || null,
         model: form.model,

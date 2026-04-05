@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { useCompletion } from "@ai-sdk/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight, MessageSquare, FileText, List, Quote } from "lucide-react";
 import {
@@ -104,6 +105,11 @@ export default function Editor() {
   const plainTextRef = useRef("");
   const [viewMode, setViewMode] = useState<ViewMode>("prose");
   const [pageCount, setPageCount] = useState(1);
+  const [ghostText, setGhostText] = useState("");
+  const ghostTextRef = useRef("");
+  const titleRef = useRef(title);
+  const citationStyleRef = useRef(citationStyle);
+  const isAutocompleteLoadingRef = useRef(false);
 
   useEffect(() => {
     setContent("");
@@ -167,7 +173,7 @@ export default function Editor() {
   }, [docId]);
 
   useEffect(() => {
-    if (doc) {
+    if (doc && doc.id === docId) {
       setContent(doc.content);
       setTitle(doc.title);
       setCitationStyle(
@@ -176,7 +182,7 @@ export default function Editor() {
       const saved = localStorage.getItem(`viewMode-${docId}`);
       setViewMode((saved as ViewMode) ?? doc.viewMode ?? "prose");
     }
-  }, [doc, docId]);
+  }, [docId]);
 
   useEffect(() => {
     contentRef.current = content;
@@ -185,6 +191,100 @@ export default function Editor() {
   useEffect(() => {
     plainTextRef.current = plainText;
   }, [plainText]);
+
+  useEffect(() => {
+    ghostTextRef.current = ghostText;
+  }, [ghostText]);
+
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
+  useEffect(() => {
+    citationStyleRef.current = citationStyle;
+  }, [citationStyle]);
+
+  const {
+    completion: autocompleteText,
+    complete: triggerAutocomplete,
+    isLoading: isAutocompleteLoading,
+    stop: stopAutocomplete,
+    error: autocompleteError,
+  } = useCompletion({
+    api: `/api/ai/autocomplete/stream`,
+    streamProtocol: "text",
+    onError: (error) => {
+      console.error("Autocomplete error:", error);
+      const errorMessage = error?.message || "Unknown error";
+      if (errorMessage.includes("rate limit")) {
+        toast({
+          title: "Rate limit exceeded",
+          description: "Please wait a moment before trying again",
+          variant: "destructive",
+        });
+      } else if (errorMessage.includes("authentication")) {
+        toast({
+          title: "Authentication failed",
+          description: "Please check your API key in Settings",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Autocomplete failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    },
+  });
+
+  useEffect(() => {
+    isAutocompleteLoadingRef.current = isAutocompleteLoading;
+  }, [isAutocompleteLoading]);
+
+  useEffect(() => {
+    if (autocompleteText && autocompleteText.length > 0) {
+      const suggestion = autocompleteText.replace(/\s+/g, " ");
+      const normalizedSuggestion = suggestion.startsWith(" ")
+        ? suggestion
+        : " " + suggestion;
+      setGhostText(normalizedSuggestion);
+    }
+  }, [autocompleteText]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "j") {
+        e.preventDefault();
+        if (isAutocompleteLoadingRef.current) return;
+        setGhostText("");
+        const currentContent = richTextEditorRef.current?.getPlainText() || "";
+        triggerAutocomplete(currentContent, {
+          body: {
+            currentText: currentContent,
+            documentId: docId,
+            citationStyle: citationStyleRef.current,
+          },
+        });
+      } else if (e.key === "Tab" && ghostTextRef.current) {
+        e.preventDefault();
+        if (ghostTextRef.current) {
+          richTextEditorRef.current?.insertText(ghostTextRef.current);
+          setGhostText("");
+          stopAutocomplete();
+        }
+      } else if (e.key === "Escape" && ghostTextRef.current) {
+        e.preventDefault();
+        if (isAutocompleteLoadingRef.current) {
+          stopAutocomplete();
+        }
+        setGhostText("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [docId, triggerAutocomplete, stopAutocomplete]);
 
   const paraphrase = useParaphrase();
   const aiChat = useAiChat();
@@ -566,11 +666,52 @@ export default function Editor() {
               ref={richTextEditorRef}
               content={content}
               onChange={handleContentChange}
-              placeholder="Start writing your document..."
+              placeholder="Start writing your document... Press Ctrl+J for AI autocomplete"
               viewMode={viewMode}
               onPageCountChange={setPageCount}
             />
           </div>
+
+          {(ghostText || isAutocompleteLoading) && (
+            <div className="border-t border-border bg-muted/30 px-4 py-2 flex-shrink-0">
+              <div className="flex items-center gap-2 mb-1">
+                {ghostText ? (
+                  <>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      AI suggestion:
+                    </span>
+                    <kbd className="text-xs bg-background border border-border rounded px-1.5 py-0.5 font-mono">
+                      Tab
+                    </kbd>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      to accept,
+                    </span>
+                    <kbd className="text-xs bg-background border border-border rounded px-1.5 py-0.5 font-mono">
+                      Esc
+                    </kbd>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                      to dismiss
+                    </span>
+                    {isAutocompleteLoading && (
+                      <span className="inline-block w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin ml-auto" />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span className="inline-block w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                    <span className="text-xs text-muted-foreground">
+                      Generating suggestion...
+                    </span>
+                  </>
+                )}
+              </div>
+              {ghostText && (
+                <div className="text-xs italic text-muted-foreground/70 bg-background/50 rounded px-2 py-1.5 border border-border/50">
+                  {ghostText.trim()}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="border-t border-border bg-card px-4 py-1.5 flex items-center gap-4 text-xs text-muted-foreground flex-shrink-0">
             <span data-testid="text-word-count">
