@@ -18,6 +18,7 @@ import {
   ChevronDown,
   FileText,
   Monitor,
+  Split,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,6 +75,7 @@ interface EditorToolbarProps {
   wordCount: number;
   onAiCommand: (command: string) => void;
   onFormat: (action: FormatAction) => void;
+  onInsertPageBreak: () => void;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
 }
@@ -112,6 +114,7 @@ export default function EditorToolbar({
   wordCount,
   onAiCommand,
   onFormat,
+  onInsertPageBreak,
   viewMode,
   onViewModeChange,
 }: EditorToolbarProps) {
@@ -198,6 +201,13 @@ export default function EditorToolbar({
         icon={AlignRight}
         label="Align Right"
         onClick={() => onFormat("alignRight")}
+      />
+      <Separator orientation="vertical" className="h-5 mx-1" />
+
+      <ToolbarButton
+        icon={Split}
+        label="Insert Page Break (Ctrl+Enter)"
+        onClick={onInsertPageBreak}
       />
       <Separator orientation="vertical" className="h-5 mx-1" />
 

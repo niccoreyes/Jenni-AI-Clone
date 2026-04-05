@@ -3,7 +3,14 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { useEffect, forwardRef, useImperativeHandle } from "react";
+import {
+  useEffect,
+  forwardRef,
+  useImperativeHandle,
+  useState,
+  useCallback,
+} from "react";
+import { PageBreak } from "@/extensions/PageBreak";
 
 export type FormatAction =
   | "bold"
@@ -28,12 +35,26 @@ interface RichTextEditorProps {
   onChange: (html: string, text: string) => void;
   placeholder?: string;
   viewMode?: ViewMode;
+  onPageCountChange?: (count: number) => void;
   editorRef?: React.RefObject<{
     getSelectedText: () => string;
     getSelectionRange: () => { from: number; to: number };
     insertText: (text: string) => void;
     getPlainText: () => string;
+    getPageCount: () => number;
+    insertPageBreak: () => void;
   } | null>;
+}
+
+function countPages(editor: ReturnType<typeof useEditor>): number {
+  if (!editor) return 1;
+  let breaks = 0;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name === "pageBreak") {
+      breaks++;
+    }
+  });
+  return breaks + 1;
 }
 
 const RichTextEditor = forwardRef<
@@ -42,6 +63,8 @@ const RichTextEditor = forwardRef<
     getSelectionRange: () => { from: number; to: number };
     insertText: (text: string) => void;
     getPlainText: () => string;
+    getPageCount: () => number;
+    insertPageBreak: () => void;
   },
   RichTextEditorProps
 >(
@@ -51,9 +74,12 @@ const RichTextEditor = forwardRef<
       onChange,
       placeholder = "Start writing your document...",
       viewMode = "prose",
+      onPageCountChange,
     },
     ref,
   ) => {
+    const [pageCount, setPageCount] = useState(1);
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -68,6 +94,7 @@ const RichTextEditor = forwardRef<
         Underline,
         TextAlign.configure({ types: ["heading", "paragraph"] }),
         Placeholder.configure({ placeholder }),
+        PageBreak,
       ],
       content,
       editorProps: {
@@ -82,8 +109,24 @@ const RichTextEditor = forwardRef<
       },
       onUpdate: ({ editor }) => {
         onChange(editor.getHTML(), editor.getText());
+        const pages = countPages(editor);
+        setPageCount(pages);
+        onPageCountChange?.(pages);
+      },
+      onCreate: ({ editor }) => {
+        const pages = countPages(editor);
+        setPageCount(pages);
+        onPageCountChange?.(pages);
       },
     });
+
+    const updatePageCount = useCallback(() => {
+      if (editor) {
+        const pages = countPages(editor);
+        setPageCount(pages);
+        onPageCountChange?.(pages);
+      }
+    }, [editor, onPageCountChange]);
 
     useImperativeHandle(ref, () => ({
       getSelectedText: () => {
@@ -105,13 +148,21 @@ const RichTextEditor = forwardRef<
         if (!editor) return "";
         return editor.getText();
       },
+      getPageCount: () => {
+        return countPages(editor);
+      },
+      insertPageBreak: () => {
+        if (!editor) return;
+        editor.commands.setPageBreak();
+      },
     }));
 
     useEffect(() => {
       if (editor && content !== editor.getHTML()) {
         editor.commands.setContent(content);
+        updatePageCount();
       }
-    }, [content, editor]);
+    }, [content, editor, updatePageCount]);
 
     if (!editor) return null;
 

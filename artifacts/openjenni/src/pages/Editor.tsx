@@ -95,12 +95,15 @@ export default function Editor() {
     getSelectionRange: () => { from: number; to: number };
     insertText: (text: string) => void;
     getPlainText: () => string;
+    getPageCount: () => number;
+    insertPageBreak: () => void;
   }>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
   const [plainText, setPlainText] = useState("");
   const plainTextRef = useRef("");
   const [viewMode, setViewMode] = useState<ViewMode>("prose");
+  const [pageCount, setPageCount] = useState(1);
 
   useEffect(() => {
     setContent("");
@@ -277,6 +280,10 @@ export default function Editor() {
       id: docId,
       data: { viewMode: mode },
     });
+  };
+
+  const handleInsertPageBreak = () => {
+    richTextEditorRef.current?.insertPageBreak();
   };
 
   const handleFormat = (action: FormatAction) => {
@@ -514,6 +521,7 @@ export default function Editor() {
               }
             }}
             onFormat={handleFormat}
+            onInsertPageBreak={handleInsertPageBreak}
             viewMode={viewMode}
             onViewModeChange={handleViewModeChange}
           />
@@ -560,12 +568,16 @@ export default function Editor() {
               onChange={handleContentChange}
               placeholder="Start writing your document..."
               viewMode={viewMode}
+              onPageCountChange={setPageCount}
             />
           </div>
 
           <div className="border-t border-border bg-card px-4 py-1.5 flex items-center gap-4 text-xs text-muted-foreground flex-shrink-0">
             <span data-testid="text-word-count">
               {wordCount.toLocaleString()} words
+            </span>
+            <span>
+              {pageCount} {pageCount === 1 ? "page" : "pages"}
             </span>
             {doc.targetWordCount && (
               <>

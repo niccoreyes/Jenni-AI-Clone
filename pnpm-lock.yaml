@@ -435,6 +435,9 @@ importers:
       '@ai-sdk/react':
         specifier: ^3.0.147
         version: 3.0.147(react@19.1.0)(zod@3.25.76)
+      '@tiptap/core':
+        specifier: ^3.22.1
+        version: 3.22.1(@tiptap/pm@3.22.1)
       '@tiptap/extension-placeholder':
         specifier: ^3.22.1
         version: 3.22.1(@tiptap/extensions@3.22.1(@tiptap/core@3.22.1(@tiptap/pm@3.22.1))(@tiptap/pm@3.22.1))
