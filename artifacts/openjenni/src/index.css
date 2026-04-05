@@ -68,11 +68,11 @@
 
 /* LIGHT MODE - Warm parchment / ink tones */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.08);
 
   --background: 36 20% 96%;
   --foreground: 222 30% 14%;
@@ -109,45 +109,73 @@
   --chart-4: 38 92% 50%;
   --chart-5: 0 72% 51%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
-  --app-font-serif: Georgia, 'Times New Roman', serif;
-  --app-font-mono: 'Fira Code', 'Cascadia Code', Menlo, monospace;
+  --app-font-sans: "Inter", system-ui, sans-serif;
+  --app-font-serif: Georgia, "Times New Roman", serif;
+  --app-font-mono: "Fira Code", "Cascadia Code", Menlo, monospace;
   --radius: 0.375rem;
 
   --shadow-2xs: 0 1px 2px 0 rgba(15, 25, 50, 0.05);
   --shadow-xs: 0 1px 3px 0 rgba(15, 25, 50, 0.08);
-  --shadow-sm: 0 1px 3px 0 rgba(15, 25, 50, 0.10), 0 1px 2px -1px rgba(15, 25, 50, 0.06);
-  --shadow: 0 4px 6px -1px rgba(15, 25, 50, 0.10), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(15, 25, 50, 0.10), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 25, 50, 0.10), 0 4px 6px -4px rgba(15, 25, 50, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(15, 25, 50, 0.10), 0 8px 10px -6px rgba(15, 25, 50, 0.05);
+  --shadow-sm:
+    0 1px 3px 0 rgba(15, 25, 50, 0.1), 0 1px 2px -1px rgba(15, 25, 50, 0.06);
+  --shadow:
+    0 4px 6px -1px rgba(15, 25, 50, 0.1), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
+  --shadow-md:
+    0 4px 6px -1px rgba(15, 25, 50, 0.1), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(15, 25, 50, 0.1),
+    0 4px 6px -4px rgba(15, 25, 50, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(15, 25, 50, 0.1),
+    0 8px 10px -6px rgba(15, 25, 50, 0.05);
   --shadow-2xl: 0 25px 50px -12px rgba(15, 25, 50, 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-primary-border: hsl(
+    from hsl(var(--sidebar-primary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(
+    from hsl(var(--sidebar-accent)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(
+    from hsl(var(--primary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(
+    from hsl(var(--secondary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(
+    from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) /
+      alpha
+  );
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(
+    from hsl(var(--accent)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(
+    from hsl(var(--destructive)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 }
 
 /* DARK MODE - Deep navy academic theme */
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
 
   --background: 222 30% 9%;
   --foreground: 210 20% 90%;
@@ -186,11 +214,16 @@
 
   --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-sm:
+    0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
 }
 
@@ -219,8 +252,10 @@
     pointer-events: none;
   }
 
-  .no-default-hover-elevate {}
-  .no-default-active-elevate {}
+  .no-default-hover-elevate {
+  }
+  .no-default-active-elevate {
+  }
 
   .toggle-elevate::before,
   .toggle-elevate-2::before {
@@ -282,4 +317,11 @@
     color: hsl(var(--muted-foreground) / 0.5);
     font-style: italic;
   }
+
+  .toolbar-surface {
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+}
+
 }

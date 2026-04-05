@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCompletion } from "@ai-sdk/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight, MessageSquare, FileText, List, Quote } from "lucide-react";
 import {
@@ -32,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +41,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import AiChatPanel from "@/components/AiChatPanel";
+import EditorToolbar from "@/components/EditorToolbar";
+import RichTextEditor, { FormatAction } from "@/components/RichTextEditor";
 
 type SidebarTab = "chat" | "citations" | "pdfs" | "outline";
 
@@ -70,7 +70,6 @@ export default function Editor() {
     "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard"
   >("APA7");
   const [activeTab, setActiveTab] = useState<SidebarTab>("chat");
-  const [ghostText, setGhostText] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [outlineResult, setOutlineResult] = useState<OutlineSection[]>([]);
   const [outlineTopic, setOutlineTopic] = useState("");
@@ -79,8 +78,6 @@ export default function Editor() {
   const [paraphraseOpen, setParaphraseOpen] = useState(false);
   const [paraphraseResult, setParaphraseResult] = useState("");
   const [selectedText, setSelectedText] = useState("");
-  const [selectionStart, setSelectionStart] = useState(0);
-  const [selectionEnd, setSelectionEnd] = useState(0);
   const [addCitationOpen, setAddCitationOpen] = useState(false);
   const [citationForm, setCitationForm] = useState({
     author: "",
@@ -90,34 +87,22 @@ export default function Editor() {
     doi: "",
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const richTextEditorRef = useRef<{
+    getSelectedText: () => string;
+    getSelectionRange: () => { from: number; to: number };
+    insertText: (text: string) => void;
+    getPlainText: () => string;
+  }>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
-  const [ghostPosition, setGhostPosition] = useState(0);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const scrollThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [plainText, setPlainText] = useState("");
+  const plainTextRef = useRef("");
 
-  // Throttled scroll handler to sync textarea with ghost text overlay
-  const handleScroll = useCallback(() => {
-    if (scrollThrottleTimerRef.current) return;
-
-    scrollThrottleTimerRef.current = setTimeout(() => {
-      scrollThrottleTimerRef.current = null;
-    }, 16); // ~60fps
-
-    if (overlayRef.current && textareaRef.current) {
-      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
-      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }, []);
-
-  // Reset local state when document ID changes
   useEffect(() => {
     setContent("");
     setTitle("");
-    setGhostText("");
+    setPlainText("");
+    setSelectedText("");
   }, [docId]);
 
   const { data: doc, isLoading } = useGetDocument(docId, {
@@ -154,12 +139,8 @@ export default function Editor() {
     },
   });
 
-  // Cleanup timers and flush pending save on unmount
   useEffect(() => {
     return () => {
-      if (scrollThrottleTimerRef.current) {
-        clearTimeout(scrollThrottleTimerRef.current);
-      }
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         const pendingContent = contentRef.current;
@@ -192,54 +173,9 @@ export default function Editor() {
     contentRef.current = content;
   }, [content]);
 
-  // Streaming autocomplete using Vercel AI SDK
-  const {
-    completion: autocompleteText,
-    complete: triggerAutocomplete,
-    isLoading: isAutocompleteLoading,
-    stop: stopAutocomplete,
-    error: autocompleteError,
-  } = useCompletion({
-    api: `/api/ai/autocomplete/stream`,
-    streamProtocol: "text",
-    onFinish: () => {
-      // Completion finished - ghost text is already set via useEffect
-    },
-    onError: (error) => {
-      console.error("Autocomplete error:", error);
-      const errorMessage = error?.message || "Unknown error";
-      if (errorMessage.includes("rate limit")) {
-        toast({
-          title: "Rate limit exceeded",
-          description: "Please wait a moment before trying again",
-          variant: "destructive",
-        });
-      } else if (errorMessage.includes("authentication")) {
-        toast({
-          title: "Authentication failed",
-          description: "Please check your API key in Settings",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Autocomplete failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
-    },
-  });
-
-  // Sync streaming completion to ghost text state
   useEffect(() => {
-    if (autocompleteText && autocompleteText.length > 0) {
-      const suggestion = autocompleteText.replace(/\s+/g, " ");
-      const normalizedSuggestion = suggestion.startsWith(" ")
-        ? suggestion
-        : " " + suggestion;
-      setGhostText(normalizedSuggestion);
-    }
-  }, [autocompleteText]);
+    plainTextRef.current = plainText;
+  }, [plainText]);
 
   const paraphrase = useParaphrase();
   const aiChat = useAiChat();
@@ -288,7 +224,7 @@ export default function Editor() {
     },
   });
 
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const wordCount = plainText.split(/\s+/).filter(Boolean).length;
 
   const scheduleSave = useCallback(
     (newContent: string, newTitle: string, newStyle: string) => {
@@ -312,10 +248,10 @@ export default function Editor() {
     [docId, updateDocument],
   );
 
-  const handleContentChange = (val: string) => {
-    setContent(val);
-    setGhostText("");
-    scheduleSave(val, title, citationStyle);
+  const handleContentChange = (html: string, text: string) => {
+    setContent(html);
+    setPlainText(text);
+    scheduleSave(html, title, citationStyle);
   };
 
   const handleTitleChange = (val: string) => {
@@ -328,70 +264,34 @@ export default function Editor() {
     scheduleSave(content, title, val);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab" && ghostText) {
-      e.preventDefault();
-      // Stop streaming if still in progress
-      if (isAutocompleteLoading) {
-        stopAutocomplete();
-      }
-      // Insert ghost text at the stored position, not at the end
-      const beforeRaw = content.slice(0, ghostPosition);
-      const after = content.slice(ghostPosition);
-      // Trim trailing whitespace from before to prevent double spaces when user already typed a space
-      const before = beforeRaw.replace(/\s+$/, "");
-      const newContent = before + ghostText + after;
-      setContent(newContent);
-      setGhostText("");
-      scheduleSave(newContent, title, citationStyle);
-      return;
-    }
-    if (e.key === "Escape" && (ghostText || isAutocompleteLoading)) {
-      // Stop streaming and clear suggestion
-      if (isAutocompleteLoading) {
-        stopAutocomplete();
-      }
-      setGhostText("");
-      return;
-    }
-    if (e.ctrlKey && e.key === "j") {
-      e.preventDefault();
+  const handleFormat = (action: FormatAction) => {
+    const editor = richTextEditorRef.current;
+    if (!editor) return;
 
-      // Prevent multiple simultaneous autocomplete requests
-      if (isAutocompleteLoading) {
-        return;
-      }
+    const commands: Record<FormatAction, () => void> = {
+      bold: () => document.execCommand("bold", false),
+      italic: () => document.execCommand("italic", false),
+      underline: () => document.execCommand("underline", false),
+      h1: () => document.execCommand("formatBlock", false, "h1"),
+      h2: () => document.execCommand("formatBlock", false, "h2"),
+      h3: () => document.execCommand("formatBlock", false, "h3"),
+      quote: () => document.execCommand("formatBlock", false, "blockquote"),
+      ul: () => document.execCommand("insertUnorderedList", false),
+      ol: () => document.execCommand("insertOrderedList", false),
+      alignLeft: () => document.execCommand("justifyLeft", false),
+      alignCenter: () => document.execCommand("justifyCenter", false),
+      alignRight: () => document.execCommand("justifyRight", false),
+      undo: () => document.execCommand("undo", false),
+      redo: () => document.execCommand("redo", false),
+    };
 
-      // Clear any existing ghost text and capture cursor position
-      setGhostText("");
-      const cursorPos = e.currentTarget.selectionStart;
-      setGhostPosition(cursorPos);
-
-      // Use contentRef.current to get the latest content (not stale closure)
-      const currentContent = contentRef.current;
-
-      // Trigger streaming autocomplete
-      triggerAutocomplete(currentContent, {
-        body: {
-          currentText: currentContent,
-          documentId: docId,
-          citationStyle,
-        },
-      });
-    }
+    commands[action]?.();
   };
 
-  const handleTextSelect = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    if (start !== end) {
-      setSelectedText(content.slice(start, end));
-      setSelectionStart(start);
-      setSelectionEnd(end);
-    }
-  };
+  const handleSelectionChange = useCallback(() => {
+    const text = richTextEditorRef.current?.getSelectedText() ?? "";
+    setSelectedText(text);
+  }, []);
 
   const handleParaphrase = (mode: string) => {
     if (!selectedText) return;
@@ -422,15 +322,11 @@ export default function Editor() {
   };
 
   const applyParaphrase = () => {
-    const newContent =
-      content.slice(0, selectionStart) +
-      paraphraseResult +
-      content.slice(selectionEnd);
-    setContent(newContent);
+    richTextEditorRef.current?.insertText(paraphraseResult);
     setParaphraseOpen(false);
     setParaphraseResult("");
     setSelectedText("");
-    scheduleSave(newContent, title, citationStyle);
+    scheduleSave(contentRef.current, title, citationStyle);
   };
 
   const handleGenerateOutline = () => {
@@ -588,6 +484,23 @@ export default function Editor() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
+          <EditorToolbar
+            citationStyle={citationStyle}
+            onCitationStyleChange={handleStyleChange}
+            wordCount={wordCount}
+            onAiCommand={(mode) => {
+              if (selectedText) {
+                handleParaphrase(mode);
+              } else {
+                toast({
+                  title: "Select text first",
+                  description: "Highlight some text to use AI tools",
+                });
+              }
+            }}
+            onFormat={handleFormat}
+          />
+
           {selectedText && (
             <div className="border-b border-border bg-muted/50 px-4 py-2 flex items-center gap-1 flex-shrink-0">
               <span className="text-xs text-muted-foreground mr-2">
@@ -619,97 +532,18 @@ export default function Editor() {
             </div>
           )}
 
-          <div className="relative flex-1 overflow-hidden">
-            <Textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onMouseUp={handleTextSelect}
-              onKeyUp={handleTextSelect}
-              onScroll={handleScroll}
-              placeholder="Start writing your document... Press Ctrl+J for AI autocomplete"
-              className="absolute inset-0 resize-none border-0 rounded-none bg-background font-serif text-base leading-relaxed text-foreground p-6 focus-visible:ring-0 focus-visible:outline-none"
-              style={{
-                fontFamily: "Georgia, serif",
-                fontSize: "1rem",
-                lineHeight: "1.625",
-              }}
-              data-testid="textarea-editor"
+          <div
+            className="relative flex-1 overflow-hidden"
+            onMouseUp={handleSelectionChange}
+            onKeyUp={handleSelectionChange}
+          >
+            <RichTextEditor
+              ref={richTextEditorRef}
+              content={content}
+              onChange={handleContentChange}
+              placeholder="Start writing your document..."
             />
-            <AnimatePresence>
-              {ghostText && (
-                <motion.div
-                  ref={overlayRef}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute inset-0 pointer-events-none overflow-hidden"
-                  style={{
-                    fontFamily: "Georgia, serif",
-                    fontSize: "1rem",
-                    lineHeight: "1.625",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    padding: "24px",
-                    color: "transparent",
-                  }}
-                >
-                  <span>{content.slice(0, ghostPosition)}</span>
-                  <span
-                    style={{
-                      color: "hsl(var(--muted-foreground) / 0.5)",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {ghostText}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
-
-          {(ghostText || isAutocompleteLoading) && (
-            <div className="border-t border-border bg-muted/30 px-4 py-2 flex-shrink-0">
-              <div className="flex items-center gap-2 mb-1">
-                {ghostText ? (
-                  <>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      AI suggestion:
-                    </span>
-                    <kbd className="text-xs bg-background border border-border rounded px-1.5 py-0.5 font-mono">
-                      Tab
-                    </kbd>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      to accept,
-                    </span>
-                    <kbd className="text-xs bg-background border border-border rounded px-1.5 py-0.5 font-mono">
-                      Esc
-                    </kbd>
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      to dismiss
-                    </span>
-                    {isAutocompleteLoading && (
-                      <span className="inline-block w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin ml-auto" />
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <span className="inline-block w-3 h-3 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                    <span className="text-xs text-muted-foreground">
-                      Generating suggestion...
-                    </span>
-                  </>
-                )}
-              </div>
-              {ghostText && (
-                <div className="text-xs italic text-muted-foreground/70 bg-background/50 rounded px-2 py-1.5 border border-border/50">
-                  {ghostText.trim()}
-                </div>
-              )}
-            </div>
-          )}
 
           <div className="border-t border-border bg-card px-4 py-1.5 flex items-center gap-4 text-xs text-muted-foreground flex-shrink-0">
             <span data-testid="text-word-count">
@@ -729,7 +563,6 @@ export default function Editor() {
                 </div>
               </>
             )}
-            <span className="ml-auto">Ctrl+J for autocomplete</span>
           </div>
         </div>
 
@@ -742,7 +575,6 @@ export default function Editor() {
               transition={{ duration: 0.2, ease: "easeInOut" }}
               className="h-full flex flex-col overflow-hidden shrink-0 border-l border-border bg-card"
             >
-              {/* Tab bar */}
               <div className="flex items-center border-b border-border">
                 {[
                   {
@@ -770,7 +602,6 @@ export default function Editor() {
                 ))}
               </div>
 
-              {/* Panel Content */}
               <div className="flex-1 overflow-y-auto">
                 {activeTab === "chat" && (
                   <AiChatPanel
@@ -781,7 +612,7 @@ export default function Editor() {
                         content: msg,
                       };
                       setChatMessages((prev) => [...prev, userMsg]);
-                      const context = content.slice(-500);
+                      const context = plainTextRef.current.slice(-500);
                       aiChat.mutate(
                         {
                           data: {
