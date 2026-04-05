@@ -377,6 +377,52 @@
   letter-spacing: 0.05em;
 }
 
+.paper-view [data-type="page-break"] {
+  border-top: 2px dashed #d1d5db;
+  position: relative;
+  margin: 2rem 0;
+  height: 1.5rem;
+  display: block;
+}
+
+.paper-view [data-type="page-break"]::after {
+  content: "PAGE BREAK";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-family: var(--app-font-sans);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+.paper-view [data-type="page-break"] {
+  border-top: 2px dashed #d1d5db;
+  position: relative;
+  margin: 2rem 0;
+  height: 1.5rem;
+  display: block;
+}
+
+.paper-view [data-type="page-break"]::after {
+  content: "PAGE BREAK";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  padding: 0 0.75rem;
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-family: var(--app-font-sans);
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
 .paper-view {
   background: #fff !important;
   color: #1a1a1a !important;
