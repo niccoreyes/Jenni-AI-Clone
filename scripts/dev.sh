@@ -124,8 +124,8 @@ echo -e "${YELLOW}Cleaning up any existing processes on ports 3000-3001...${NC}"
 lsof -ti:3000,3001 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
-# Check if postgres container is already running
-if docker ps --format '{{.Names}}' | grep -q 'jenni-ai-clone-postgres-1'; then
+# Check if postgres service is already running
+if docker compose ps --services --filter "status=running" | grep -wq postgres; then
   echo -e "${GREEN}✓ PostgreSQL container already running${NC}"
 else
   echo -e "${YELLOW}Starting PostgreSQL in Docker...${NC}"
