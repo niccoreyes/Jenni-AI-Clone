@@ -76,6 +76,12 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.147",
+    "@tiptap/core": "^3.22.1",
+    "@tiptap/extension-placeholder": "^3.22.1",
+    "@tiptap/extension-text-align": "^3.22.1",
+    "@tiptap/extension-underline": "^3.22.1",
+    "@tiptap/react": "^3.22.1",
+    "@tiptap/starter-kit": "^3.22.1",
     "ai": "^6.0.145",
     "react-markdown": "^10.1.0"
   }

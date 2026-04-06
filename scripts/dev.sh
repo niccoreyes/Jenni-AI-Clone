@@ -29,10 +29,10 @@ for arg in "$@"; do
 done
 
 if [ "$BUILD_MODE" = true ]; then
-  echo -e "${BLUE}🚀 Jenny AI Clone - Build Mode${NC}"
+  echo -e "${BLUE}🚀 Jenni AI Clone - Build Mode${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 else
-  echo -e "${BLUE}🚀 Jenny AI Clone - Development Mode${NC}"
+  echo -e "${BLUE}🚀 Jenni AI Clone - Development Mode${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 fi
 
@@ -125,7 +125,7 @@ lsof -ti:3000,3001 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
 # Check if postgres container is already running
-if docker ps --format '{{.Names}}' | grep -q 'jenny-ai-clone-postgres-1'; then
+if docker ps --format '{{.Names}}' | grep -q 'jenni-ai-clone-postgres-1'; then
   echo -e "${GREEN}✓ PostgreSQL container already running${NC}"
 else
   echo -e "${YELLOW}Starting PostgreSQL in Docker...${NC}"
@@ -187,7 +187,7 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Export DATABASE_URL
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone"
+export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenni_ai_clone"
 export PORT=3001
 
 # Create a temporary directory for process management
@@ -198,12 +198,7 @@ trap "rm -rf $TEMP_DIR" EXIT
 cleanup() {
   echo ""
   echo -e "${YELLOW}Shutting down development servers...${NC}"
-  if [ ! -z "$API_PID" ]; then
-    kill $API_PID 2>/dev/null || true
-  fi
-  if [ ! -z "$FRONTEND_PID" ]; then
-    kill $FRONTEND_PID 2>/dev/null || true
-  fi
+  pkill -INT -P $$ 2>/dev/null || true
   echo -e "${GREEN}✓ Development servers stopped${NC}"
   echo -e "${YELLOW}PostgreSQL container is still running (docker compose stop postgres to stop it)${NC}"
 }
@@ -280,7 +275,7 @@ fi
 echo -e ""
 echo -e "  ${GREEN}Frontend:${NC}   http://localhost:3000"
 echo -e "  ${GREEN}API Server:${NC} http://localhost:3001"
-echo -e "  ${GREEN}Database:${NC}   postgresql://postgres:postgres@localhost:5432/jenny_ai_clone"
+echo -e "  ${GREEN}Database:${NC}   postgresql://postgres:postgres@localhost:5432/jenni_ai_clone"
 echo -e ""
 echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
 echo -e ""

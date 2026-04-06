@@ -10,7 +10,12 @@ import {
   GenerateOutlineResponse,
 } from "@workspace/api-zod";
 import { db, settingsTable } from "@workspace/db";
-import { streamText, pipeTextStreamToResponse, type LanguageModel } from "ai";
+import {
+  streamText,
+  pipeTextStreamToResponse,
+  pipeUIMessageStreamToResponse,
+  type LanguageModel,
+} from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 
@@ -41,6 +46,9 @@ function buildClient(settings: {
       case "openrouter":
         endpoint = "https://openrouter.ai/api/v1";
         break;
+      case "ollama":
+        endpoint = baseUrl ?? "http://localhost:11434/v1";
+        break;
       default:
         endpoint = "https://api.openai.com/v1";
     }
@@ -56,8 +64,10 @@ async function callOpenAICompat(
   messages: Array<{ role: string; content: string }>,
   temperature: number = 0.7,
   maxRetries: number = 3,
+  provider?: string,
 ): Promise<string> {
-  if (!apiKey) {
+  // Ollama doesn't require an API key
+  if (!apiKey && provider !== "ollama") {
     return generateFallbackResponse(
       messages[messages.length - 1]?.content ?? "",
     );
@@ -88,12 +98,11 @@ async function callOpenAICompat(
         return data.choices[0]?.message?.content ?? "";
       }
 
-      // Handle rate limiting (429) with exponential backoff
       if (response.status === 429) {
         const retryAfter = response.headers.get("retry-after");
         const waitTime = retryAfter
           ? parseInt(retryAfter) * 1000
-          : Math.pow(2, attempt) * 1000; // exponential backoff
+          : Math.pow(2, attempt) * 1000;
 
         if (attempt < maxRetries) {
           await new Promise((resolve) => setTimeout(resolve, waitTime));
@@ -105,7 +114,6 @@ async function callOpenAICompat(
         }
       }
 
-      // Handle other errors
       if (response.status === 401) {
         throw new Error(
           `AI API authentication failed. Please check your API key.`,
@@ -115,7 +123,6 @@ async function callOpenAICompat(
           `AI API access forbidden. Please check your API key permissions.`,
         );
       } else if (response.status >= 500) {
-        // Retry server errors
         if (attempt < maxRetries) {
           await new Promise((resolve) =>
             setTimeout(resolve, Math.pow(2, attempt) * 1000),
@@ -164,6 +171,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -174,7 +182,7 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   const lastSentence = parsed.data.currentText.split(/[.!?;\n]+/).pop() || "";
 
   let suggestion = "";
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     suggestion = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -187,6 +195,8 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
         },
       ],
       0.2,
+      3,
+      provider,
     );
     console.log("[DEBUG] lastSentence:", JSON.stringify(lastSentence));
     console.log("[DEBUG] suggestion before:", JSON.stringify(suggestion));
@@ -205,7 +215,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
       );
     }
 
-    // Remove common AI preamble patterns
     suggestion = suggestion
       .replace(
         /^(here|this|the)\s+(text|passage|sentence|paragraph)\s+(is|shows|demonstrates|illustrates|continues)/i,
@@ -217,7 +226,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
       )
       .trim();
 
-    // Safeguard: if post-processing emptied the suggestion, use a fallback
     if (!suggestion) {
       console.log(
         "[DEBUG] Suggestion was emptied by post-processing, using fallback",
@@ -233,7 +241,6 @@ router.post("/ai/autocomplete", async (req, res): Promise<void> => {
   res.json(AutocompleteResponse.parse({ suggestion, alternative: null }));
 });
 
-// Helper to create model provider based on settings
 function createModelProvider(settings: {
   provider: string;
   apiKey: string;
@@ -255,6 +262,11 @@ function createModelProvider(settings: {
         apiKey,
         baseURL: baseUrl ?? "https://api.moonshot.cn/v1",
       })(model);
+    case "ollama":
+      return createOpenAI({
+        apiKey,
+        baseURL: baseUrl ?? "http://localhost:11434/v1",
+      })(model);
     default:
       return createOpenAI({
         apiKey,
@@ -263,7 +275,6 @@ function createModelProvider(settings: {
   }
 }
 
-// Streaming autocomplete endpoint
 router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
   const parsed = AutocompleteBody.safeParse(req.body);
   if (!parsed.success) {
@@ -282,7 +293,11 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
   const lastChunk = parsed.data.currentText.slice(-1000);
 
   try {
-    if (!configuredSettings.apiKey) {
+    // Ollama doesn't require an API key
+    if (
+      !configuredSettings.apiKey &&
+      configuredSettings.provider !== "ollama"
+    ) {
       res.status(400).json({ error: "API key not configured" });
       return;
     }
@@ -290,7 +305,7 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
     const model = createModelProvider({
       provider: configuredSettings.provider,
       model: configuredSettings.model,
-      apiKey: configuredSettings.apiKey,
+      apiKey: configuredSettings.apiKey || "ollama", // dummy key for Ollama
       baseUrl: configuredSettings.baseUrl ?? undefined,
     });
 
@@ -298,8 +313,8 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
       model,
       system: systemPrompt,
       prompt: `Continue from exactly where this text ends. Do not repeat or rephrase anything—just continue:\n\n${lastChunk}\n\n[END OF TEXT - continue from here]:`,
-      temperature: 0.2,
-      maxTokens: 512,
+      temperature: 0.5,
+      maxTokens: 10,
     } as any);
 
     pipeTextStreamToResponse({
@@ -320,6 +335,7 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -340,7 +356,7 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
     modeInstructions[parsed.data.mode] ?? modeInstructions.academic;
 
   let result = "";
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     result = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -353,6 +369,8 @@ router.post("/ai/paraphrase", async (req, res): Promise<void> => {
         { role: "user", content: parsed.data.text },
       ],
       0.4,
+      3,
+      provider,
     );
   } else {
     result = `[${parsed.data.mode.toUpperCase()} MODE] ${parsed.data.text}`;
@@ -369,6 +387,7 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -382,14 +401,80 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
   ];
 
   let response = "";
-  if (apiKey) {
-    response = await callOpenAICompat(endpoint, apiKey, model, messages, 0.7);
+  if (apiKey || provider === "ollama") {
+    response = await callOpenAICompat(
+      endpoint,
+      apiKey,
+      model,
+      messages,
+      0.7,
+      3,
+      provider,
+    );
   } else {
     response =
       "To use the AI chat feature, please configure your API key in Settings. I can help you analyze your document, find research gaps, generate outlines, and suggest citations once connected.";
   }
 
   res.json(AiChatResponse.parse({ response, citations: [] }));
+});
+
+router.post("/ai/chat/stream", async (req, res): Promise<void> => {
+  const parsed = AiChatBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const settings = await getSettings();
+  const configuredSettings = settings ?? {
+    provider: "openai",
+    model: "gpt-4o-mini",
+  };
+
+  const systemPrompt = `You are an academic research assistant helping a scholar write. You provide cited, careful, academically rigorous responses. When referencing information, indicate confidence levels. Do not fabricate citations or statistics.${parsed.data.documentContext ? `\n\nCurrent document context:\n${parsed.data.documentContext}` : ""}`;
+
+  try {
+    // Ollama doesn't require an API key
+    if (
+      !configuredSettings.apiKey &&
+      configuredSettings.provider !== "ollama"
+    ) {
+      res.status(400).json({ error: "API key not configured" });
+      return;
+    }
+
+    const model = createModelProvider({
+      provider: configuredSettings.provider,
+      model: configuredSettings.model,
+      apiKey: configuredSettings.apiKey || "ollama", // dummy key for Ollama
+      baseUrl: configuredSettings.baseUrl ?? undefined,
+    });
+
+    const messages = [
+      ...(parsed.data.history ?? []).map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      })),
+      { role: "user", content: parsed.data.message },
+    ];
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages: messages as any,
+      temperature: 0.7,
+      maxTokens: 4096,
+    } as any);
+
+    pipeUIMessageStreamToResponse({
+      response: res,
+      stream: result.toUIMessageStream(),
+    });
+  } catch (error) {
+    console.error("Chat streaming error:", error);
+    res.status(500).json({ error: "Streaming failed" });
+  }
 });
 
 router.post("/ai/outline", async (req, res): Promise<void> => {
@@ -400,6 +485,7 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
   }
 
   const settings = await getSettings();
+  const provider = settings?.provider ?? "openai";
   const { endpoint, apiKey, model } = buildClient(
     settings ?? { provider: "openai", model: "gpt-5.2" },
   );
@@ -414,7 +500,7 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
 }`;
 
   let outlineData;
-  if (apiKey) {
+  if (apiKey || provider === "ollama") {
     const raw = await callOpenAICompat(
       endpoint,
       apiKey,
@@ -427,6 +513,8 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
         },
       ],
       0.3,
+      3,
+      provider,
     );
     try {
       const match = raw.match(/\{[\s\S]*\}/);
@@ -500,6 +588,49 @@ router.post("/ai/outline", async (req, res): Promise<void> => {
   }
 
   res.json(GenerateOutlineResponse.parse(outlineData));
+});
+
+router.get("/ai/models", async (req, res): Promise<void> => {
+  try {
+    const settings = await getSettings();
+
+    // Use query params if provided, fall back to settings
+    const provider = (req.query.provider as string) ?? settings?.provider;
+    const queryBaseUrl = (req.query.baseUrl as string) ?? settings?.baseUrl;
+
+    // Require either query params or settings
+    if (!provider) {
+      res.status(400).json({ error: "Provider not specified" });
+      return;
+    }
+
+    if (provider === "ollama") {
+      const ollamaUrl = queryBaseUrl ?? "http://localhost:11434";
+      const baseUrlWithoutV1 = ollamaUrl.replace(/\/v1$/, "");
+      const response = await fetch(`${baseUrlWithoutV1}/api/tags`);
+
+      if (!response.ok) {
+        res.status(500).json({
+          error:
+            "Failed to fetch models from Ollama. Make sure Ollama is running.",
+        });
+        return;
+      }
+
+      const data = (await response.json()) as {
+        models?: Array<{ name: string }>;
+      };
+      const models = (data.models ?? []).map((m) => m.name);
+      res.json({ models });
+      return;
+    }
+
+    // For non-Ollama providers, return the configured model or empty array
+    res.json({ models: settings?.model ? [settings.model] : [] });
+  } catch (error) {
+    console.error("Error fetching AI models:", error);
+    res.status(500).json({ error: "Failed to fetch available models" });
+  }
 });
 
 export default router;

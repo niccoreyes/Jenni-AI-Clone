@@ -8,7 +8,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🛑 Jenny AI Clone - Stop Services${NC}"
+echo -e "${BLUE}🛑 Jenni AI Clone - Stop Services${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 # Function to kill processes on specific ports
@@ -31,7 +31,7 @@ kill_port 3001 "API Server"
 
 # Stop Docker containers
 echo -e "${YELLOW}Stopping Docker containers...${NC}"
-if docker compose ps --format 'table {{.Name}}\t{{.Status}}' | grep -q "jenny-ai-clone"; then
+if docker compose ps --format 'table {{.Name}}\t{{.Status}}' | grep -q "jenni-ai-clone"; then
   docker compose stop
   echo -e "${GREEN}✓ Docker containers stopped${NC}"
 else

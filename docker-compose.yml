@@ -4,10 +4,10 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - '3001:3001'
+      - "3001:3001"
     environment:
       - PORT=3001
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/jenny_ai_clone
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/jenni_ai_clone
     depends_on:
       - postgres
     command: ["sh", "./scripts/start-api.sh"]
@@ -17,7 +17,7 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
     ports:
-      - '3000:3000'
+      - "3000:3000"
     environment:
       - PORT=3000
       - BASE_PATH=/
@@ -32,9 +32,9 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: jenny_ai_clone
+      POSTGRES_DB: jenni_ai_clone
     ports:
-      - '5432:5432'
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

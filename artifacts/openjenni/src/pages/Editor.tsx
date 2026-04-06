@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCompletion } from "@ai-sdk/react";
+import { useCompletion, useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { motion, AnimatePresence } from "framer-motion";
 import { PanelRight, MessageSquare, FileText, List, Quote } from "lucide-react";
 import {
@@ -9,7 +10,6 @@ import {
   getGetDocumentQueryKey,
   useUpdateDocument,
   useParaphrase,
-  useAiChat,
   useGenerateOutline,
   useListCitations,
   getListCitationsQueryKey,
@@ -32,7 +32,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +42,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 import AiChatPanel from "@/components/AiChatPanel";
+import EditorToolbar from "@/components/EditorToolbar";
+import RichTextEditor, {
+  FormatAction,
+  ViewMode,
+} from "@/components/RichTextEditor";
 
 type SidebarTab = "chat" | "citations" | "pdfs" | "outline";
 
@@ -70,8 +74,6 @@ export default function Editor() {
     "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard"
   >("APA7");
   const [activeTab, setActiveTab] = useState<SidebarTab>("chat");
-  const [ghostText, setGhostText] = useState("");
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [outlineResult, setOutlineResult] = useState<OutlineSection[]>([]);
   const [outlineTopic, setOutlineTopic] = useState("");
   const [outlineThesis, setOutlineThesis] = useState("");
@@ -79,8 +81,6 @@ export default function Editor() {
   const [paraphraseOpen, setParaphraseOpen] = useState(false);
   const [paraphraseResult, setParaphraseResult] = useState("");
   const [selectedText, setSelectedText] = useState("");
-  const [selectionStart, setSelectionStart] = useState(0);
-  const [selectionEnd, setSelectionEnd] = useState(0);
   const [addCitationOpen, setAddCitationOpen] = useState(false);
   const [citationForm, setCitationForm] = useState({
     author: "",
@@ -90,34 +90,43 @@ export default function Editor() {
     doi: "",
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const richTextEditorRef = useRef<{
+    getSelectedText: () => string;
+    getSelectionRange: () => { from: number; to: number };
+    insertText: (text: string) => void;
+    getPlainText: () => string;
+    getHTML: () => string;
+    getPageCount: () => number;
+    insertPageBreak: () => void;
+    toggleBold: () => void;
+    toggleItalic: () => void;
+    toggleUnderline: () => void;
+    toggleHeading: (level: 1 | 2 | 3) => void;
+    toggleBlockquote: () => void;
+    toggleBulletList: () => void;
+    toggleOrderedList: () => void;
+    setTextAlign: (align: "left" | "center" | "right") => void;
+    undo: () => void;
+    redo: () => void;
+    focus: () => void;
+  }>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentRef = useRef(content);
-  const [ghostPosition, setGhostPosition] = useState(0);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const scrollThrottleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const [plainText, setPlainText] = useState("");
+  const plainTextRef = useRef("");
+  const [viewMode, setViewMode] = useState<ViewMode>("prose");
+  const [pageCount, setPageCount] = useState(1);
+  const [ghostText, setGhostText] = useState("");
+  const ghostTextRef = useRef("");
+  const titleRef = useRef(title);
+  const citationStyleRef = useRef(citationStyle);
+  const isAutocompleteLoadingRef = useRef(false);
 
-  // Throttled scroll handler to sync textarea with ghost text overlay
-  const handleScroll = useCallback(() => {
-    if (scrollThrottleTimerRef.current) return;
-
-    scrollThrottleTimerRef.current = setTimeout(() => {
-      scrollThrottleTimerRef.current = null;
-    }, 16); // ~60fps
-
-    if (overlayRef.current && textareaRef.current) {
-      overlayRef.current.scrollTop = textareaRef.current.scrollTop;
-      overlayRef.current.scrollLeft = textareaRef.current.scrollLeft;
-    }
-  }, []);
-
-  // Reset local state when document ID changes
   useEffect(() => {
     setContent("");
     setTitle("");
-    setGhostText("");
+    setPlainText("");
+    setSelectedText("");
   }, [docId]);
 
   const { data: doc, isLoading } = useGetDocument(docId, {
@@ -154,12 +163,8 @@ export default function Editor() {
     },
   });
 
-  // Cleanup timers and flush pending save on unmount
   useEffect(() => {
     return () => {
-      if (scrollThrottleTimerRef.current) {
-        clearTimeout(scrollThrottleTimerRef.current);
-      }
       if (saveTimerRef.current) {
         clearTimeout(saveTimerRef.current);
         const pendingContent = contentRef.current;
@@ -168,8 +173,8 @@ export default function Editor() {
             id: docId,
             data: {
               content: pendingContent,
-              title,
-              citationStyle,
+              title: titleRef.current,
+              citationStyle: citationStyleRef.current,
             },
           });
         }
@@ -179,20 +184,37 @@ export default function Editor() {
   }, [docId]);
 
   useEffect(() => {
-    if (doc) {
+    if (doc && doc.id === docId) {
       setContent(doc.content);
       setTitle(doc.title);
       setCitationStyle(
         doc.citationStyle as "APA7" | "MLA9" | "Chicago17" | "IEEE" | "Harvard",
       );
+      const saved = localStorage.getItem(`viewMode-${docId}`);
+      setViewMode((saved as ViewMode) ?? doc.viewMode ?? "prose");
     }
-  }, [doc, docId]);
+  }, [docId]);
 
   useEffect(() => {
     contentRef.current = content;
   }, [content]);
 
-  // Streaming autocomplete using Vercel AI SDK
+  useEffect(() => {
+    plainTextRef.current = plainText;
+  }, [plainText]);
+
+  useEffect(() => {
+    ghostTextRef.current = ghostText;
+  }, [ghostText]);
+
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+
+  useEffect(() => {
+    citationStyleRef.current = citationStyle;
+  }, [citationStyle]);
+
   const {
     completion: autocompleteText,
     complete: triggerAutocomplete,
@@ -202,9 +224,6 @@ export default function Editor() {
   } = useCompletion({
     api: `/api/ai/autocomplete/stream`,
     streamProtocol: "text",
-    onFinish: () => {
-      // Completion finished - ghost text is already set via useEffect
-    },
     onError: (error) => {
       console.error("Autocomplete error:", error);
       const errorMessage = error?.message || "Unknown error";
@@ -230,7 +249,10 @@ export default function Editor() {
     },
   });
 
-  // Sync streaming completion to ghost text state
+  useEffect(() => {
+    isAutocompleteLoadingRef.current = isAutocompleteLoading;
+  }, [isAutocompleteLoading]);
+
   useEffect(() => {
     if (autocompleteText && autocompleteText.length > 0) {
       const suggestion = autocompleteText.replace(/\s+/g, " ");
@@ -241,8 +263,110 @@ export default function Editor() {
     }
   }, [autocompleteText]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if editor is focused - look for contenteditable element
+      const activeElement = document.activeElement;
+      const isEditorFocused =
+        activeElement?.getAttribute("contenteditable") === "true";
+
+      // Only handle shortcuts when editor is focused
+      if (!isEditorFocused) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === "j") {
+        e.preventDefault();
+        if (isAutocompleteLoadingRef.current) return;
+        setGhostText("");
+        const currentContent = richTextEditorRef.current?.getPlainText() || "";
+        triggerAutocomplete(currentContent, {
+          body: {
+            currentText: currentContent,
+            documentId: docId,
+            citationStyle: citationStyleRef.current,
+          },
+        });
+      } else if (e.key === "Tab" && ghostTextRef.current) {
+        e.preventDefault();
+        if (ghostTextRef.current) {
+          richTextEditorRef.current?.insertText(ghostTextRef.current);
+          setGhostText("");
+          stopAutocomplete();
+        }
+      } else if (e.key === "Escape" && ghostTextRef.current) {
+        e.preventDefault();
+        if (isAutocompleteLoadingRef.current) {
+          stopAutocomplete();
+        }
+        setGhostText("");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [docId, triggerAutocomplete, stopAutocomplete]);
+
   const paraphrase = useParaphrase();
-  const aiChat = useAiChat();
+  const chatTransportRef = useRef<DefaultChatTransport<any> | null>(null);
+  if (!chatTransportRef.current) {
+    chatTransportRef.current = new DefaultChatTransport({
+      api: `/api/ai/chat/stream`,
+      prepareSendMessagesRequest: ({ messages }) => {
+        const lastMessage = messages[messages.length - 1];
+        const textContent =
+          typeof lastMessage.content === "string"
+            ? lastMessage.content
+            : Array.isArray(lastMessage.content)
+              ? lastMessage.content
+                  .filter((p: any) => p && p.type === "text")
+                  .map((p: any) => p.text || "")
+                  .join("")
+              : "";
+        const historyMessages = messages
+          .slice(0, -1)
+          .slice(-6)
+          .map((m: any) => {
+            let content = "";
+            if (typeof m.content === "string") {
+              content = m.content;
+            } else if (Array.isArray(m.content)) {
+              content = m.content
+                .filter((p: any) => p && p.type === "text")
+                .map((p: any) => p.text || "")
+                .join("");
+            }
+            return { role: m.role, content };
+          });
+        return {
+          body: {
+            message: textContent,
+            documentId: docId,
+            documentContext: plainTextRef.current.slice(-500),
+            history: historyMessages,
+          },
+        };
+      },
+    });
+  }
+  const {
+    messages: chatMessages,
+    sendMessage,
+    status: chatStatus,
+    error: chatError,
+    stop: stopChat,
+    setMessages: setChatMessages,
+  } = useChat({
+    transport: chatTransportRef.current,
+    onError: (error) => {
+      console.error("Chat error:", error);
+      toast({
+        title: "Chat failed",
+        description: error?.message || "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+  const isChatLoading =
+    chatStatus === "streaming" || chatStatus === "submitted";
   const generateOutline = useGenerateOutline();
   const createCitation = useCreateCitation({
     mutation: {
@@ -288,7 +412,7 @@ export default function Editor() {
     },
   });
 
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const wordCount = plainText.split(/\s+/).filter(Boolean).length;
 
   const scheduleSave = useCallback(
     (newContent: string, newTitle: string, newStyle: string) => {
@@ -312,10 +436,10 @@ export default function Editor() {
     [docId, updateDocument],
   );
 
-  const handleContentChange = (val: string) => {
-    setContent(val);
-    setGhostText("");
-    scheduleSave(val, title, citationStyle);
+  const handleContentChange = (html: string, text: string) => {
+    setContent(html);
+    setPlainText(text);
+    scheduleSave(html, title, citationStyle);
   };
 
   const handleTitleChange = (val: string) => {
@@ -328,70 +452,73 @@ export default function Editor() {
     scheduleSave(content, title, val);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab" && ghostText) {
-      e.preventDefault();
-      // Stop streaming if still in progress
-      if (isAutocompleteLoading) {
-        stopAutocomplete();
-      }
-      // Insert ghost text at the stored position, not at the end
-      const beforeRaw = content.slice(0, ghostPosition);
-      const after = content.slice(ghostPosition);
-      // Trim trailing whitespace from before to prevent double spaces when user already typed a space
-      const before = beforeRaw.replace(/\s+$/, "");
-      const newContent = before + ghostText + after;
-      setContent(newContent);
-      setGhostText("");
-      scheduleSave(newContent, title, citationStyle);
-      return;
-    }
-    if (e.key === "Escape" && (ghostText || isAutocompleteLoading)) {
-      // Stop streaming and clear suggestion
-      if (isAutocompleteLoading) {
-        stopAutocomplete();
-      }
-      setGhostText("");
-      return;
-    }
-    if (e.ctrlKey && e.key === "j") {
-      e.preventDefault();
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem(`viewMode-${docId}`, mode);
+    updateDocument.mutate({
+      id: docId,
+      data: { viewMode: mode },
+    });
+  };
 
-      // Prevent multiple simultaneous autocomplete requests
-      if (isAutocompleteLoading) {
-        return;
-      }
+  const handleInsertPageBreak = () => {
+    richTextEditorRef.current?.insertPageBreak();
+  };
 
-      // Clear any existing ghost text and capture cursor position
-      setGhostText("");
-      const cursorPos = e.currentTarget.selectionStart;
-      setGhostPosition(cursorPos);
+  const handleFormat = (action: FormatAction) => {
+    const editor = richTextEditorRef.current;
+    if (!editor) return;
 
-      // Use contentRef.current to get the latest content (not stale closure)
-      const currentContent = contentRef.current;
-
-      // Trigger streaming autocomplete
-      triggerAutocomplete(currentContent, {
-        body: {
-          currentText: currentContent,
-          documentId: docId,
-          citationStyle,
-        },
-      });
+    switch (action) {
+      case "bold":
+        editor.toggleBold();
+        break;
+      case "italic":
+        editor.toggleItalic();
+        break;
+      case "underline":
+        editor.toggleUnderline();
+        break;
+      case "h1":
+        editor.toggleHeading(1);
+        break;
+      case "h2":
+        editor.toggleHeading(2);
+        break;
+      case "h3":
+        editor.toggleHeading(3);
+        break;
+      case "quote":
+        editor.toggleBlockquote();
+        break;
+      case "ul":
+        editor.toggleBulletList();
+        break;
+      case "ol":
+        editor.toggleOrderedList();
+        break;
+      case "alignLeft":
+        editor.setTextAlign("left");
+        break;
+      case "alignCenter":
+        editor.setTextAlign("center");
+        break;
+      case "alignRight":
+        editor.setTextAlign("right");
+        break;
+      case "undo":
+        editor.undo();
+        break;
+      case "redo":
+        editor.redo();
+        break;
     }
   };
 
-  const handleTextSelect = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    const start = el.selectionStart;
-    const end = el.selectionEnd;
-    if (start !== end) {
-      setSelectedText(content.slice(start, end));
-      setSelectionStart(start);
-      setSelectionEnd(end);
-    }
-  };
+  const handleSelectionChange = useCallback(() => {
+    const text = richTextEditorRef.current?.getSelectedText() ?? "";
+    setSelectedText(text);
+  }, []);
 
   const handleParaphrase = (mode: string) => {
     if (!selectedText) return;
@@ -422,15 +549,13 @@ export default function Editor() {
   };
 
   const applyParaphrase = () => {
-    const newContent =
-      content.slice(0, selectionStart) +
-      paraphraseResult +
-      content.slice(selectionEnd);
-    setContent(newContent);
+    richTextEditorRef.current?.insertText(paraphraseResult);
     setParaphraseOpen(false);
     setParaphraseResult("");
     setSelectedText("");
-    scheduleSave(newContent, title, citationStyle);
+    // Get fresh content from editor after insertion
+    const freshContent = richTextEditorRef.current?.getHTML() ?? "";
+    scheduleSave(freshContent, titleRef.current, citationStyleRef.current);
   };
 
   const handleGenerateOutline = () => {
@@ -588,6 +713,26 @@ export default function Editor() {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
+          <EditorToolbar
+            citationStyle={citationStyle}
+            onCitationStyleChange={handleStyleChange}
+            wordCount={wordCount}
+            onAiCommand={(mode) => {
+              if (selectedText) {
+                handleParaphrase(mode);
+              } else {
+                toast({
+                  title: "Select text first",
+                  description: "Highlight some text to use AI tools",
+                });
+              }
+            }}
+            onFormat={handleFormat}
+            onInsertPageBreak={handleInsertPageBreak}
+            viewMode={viewMode}
+            onViewModeChange={handleViewModeChange}
+          />
+
           {selectedText && (
             <div className="border-b border-border bg-muted/50 px-4 py-2 flex items-center gap-1 flex-shrink-0">
               <span className="text-xs text-muted-foreground mr-2">
@@ -619,55 +764,19 @@ export default function Editor() {
             </div>
           )}
 
-          <div className="relative flex-1 overflow-hidden">
-            <Textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onMouseUp={handleTextSelect}
-              onKeyUp={handleTextSelect}
-              onScroll={handleScroll}
+          <div
+            className="relative flex-1 overflow-hidden"
+            onMouseUp={handleSelectionChange}
+            onKeyUp={handleSelectionChange}
+          >
+            <RichTextEditor
+              ref={richTextEditorRef}
+              content={content}
+              onChange={handleContentChange}
               placeholder="Start writing your document... Press Ctrl+J for AI autocomplete"
-              className="absolute inset-0 resize-none border-0 rounded-none bg-background font-serif text-base leading-relaxed text-foreground p-6 focus-visible:ring-0 focus-visible:outline-none"
-              style={{
-                fontFamily: "Georgia, serif",
-                fontSize: "1rem",
-                lineHeight: "1.625",
-              }}
-              data-testid="textarea-editor"
+              viewMode={viewMode}
+              onPageCountChange={setPageCount}
             />
-            <AnimatePresence>
-              {ghostText && (
-                <motion.div
-                  ref={overlayRef}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute inset-0 pointer-events-none overflow-hidden"
-                  style={{
-                    fontFamily: "Georgia, serif",
-                    fontSize: "1rem",
-                    lineHeight: "1.625",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    padding: "24px",
-                    color: "transparent",
-                  }}
-                >
-                  <span>{content.slice(0, ghostPosition)}</span>
-                  <span
-                    style={{
-                      color: "hsl(var(--muted-foreground) / 0.5)",
-                      fontStyle: "italic",
-                    }}
-                  >
-                    {ghostText}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
 
           {(ghostText || isAutocompleteLoading) && (
@@ -715,6 +824,9 @@ export default function Editor() {
             <span data-testid="text-word-count">
               {wordCount.toLocaleString()} words
             </span>
+            <span>
+              {pageCount} {pageCount === 1 ? "page" : "pages"}
+            </span>
             {doc.targetWordCount && (
               <>
                 <span>/ {doc.targetWordCount.toLocaleString()} target</span>
@@ -729,7 +841,6 @@ export default function Editor() {
                 </div>
               </>
             )}
-            <span className="ml-auto">Ctrl+J for autocomplete</span>
           </div>
         </div>
 
@@ -742,7 +853,6 @@ export default function Editor() {
               transition={{ duration: 0.2, ease: "easeInOut" }}
               className="h-full flex flex-col overflow-hidden shrink-0 border-l border-border bg-card"
             >
-              {/* Tab bar */}
               <div className="flex items-center border-b border-border">
                 {[
                   {
@@ -770,48 +880,28 @@ export default function Editor() {
                 ))}
               </div>
 
-              {/* Panel Content */}
               <div className="flex-1 overflow-y-auto">
                 {activeTab === "chat" && (
                   <AiChatPanel
-                    messages={chatMessages}
-                    onSendMessage={(msg) => {
-                      const userMsg: ChatMessage = {
-                        role: "user",
-                        content: msg,
+                    messages={chatMessages.map((msg) => {
+                      let textContent = "";
+                      if (typeof msg.content === "string") {
+                        textContent = msg.content;
+                      } else if (Array.isArray(msg.content)) {
+                        textContent = msg.content
+                          .filter((part: any) => part && part.type === "text")
+                          .map((part: any) => part.text || "")
+                          .join("");
+                      }
+                      return {
+                        role: msg.role as "user" | "assistant",
+                        content: textContent,
                       };
-                      setChatMessages((prev) => [...prev, userMsg]);
-                      const context = content.slice(-500);
-                      aiChat.mutate(
-                        {
-                          data: {
-                            message: msg,
-                            documentId: docId,
-                            documentContext: context,
-                            history: chatMessages.slice(-6),
-                          },
-                        },
-                        {
-                          onSuccess: (result) => {
-                            setChatMessages((prev) => [
-                              ...prev,
-                              { role: "assistant", content: result.response },
-                            ]);
-                          },
-                          onError: () => {
-                            setChatMessages((prev) => [
-                              ...prev,
-                              {
-                                role: "assistant",
-                                content:
-                                  "Failed to get response. Please check your API key in Settings.",
-                              },
-                            ]);
-                          },
-                        },
-                      );
+                    })}
+                    onSendMessage={(msg) => {
+                      sendMessage({ text: msg });
                     }}
-                    isTyping={aiChat.isPending}
+                    isTyping={isChatLoading}
                   />
                 )}
 

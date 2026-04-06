@@ -68,11 +68,11 @@
 
 /* LIGHT MODE - Warm parchment / ink tones */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.08);
 
   --background: 36 20% 96%;
   --foreground: 222 30% 14%;
@@ -109,45 +109,73 @@
   --chart-4: 38 92% 50%;
   --chart-5: 0 72% 51%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
-  --app-font-serif: Georgia, 'Times New Roman', serif;
-  --app-font-mono: 'Fira Code', 'Cascadia Code', Menlo, monospace;
+  --app-font-sans: "Inter", system-ui, sans-serif;
+  --app-font-serif: Georgia, "Times New Roman", serif;
+  --app-font-mono: "Fira Code", "Cascadia Code", Menlo, monospace;
   --radius: 0.375rem;
 
   --shadow-2xs: 0 1px 2px 0 rgba(15, 25, 50, 0.05);
   --shadow-xs: 0 1px 3px 0 rgba(15, 25, 50, 0.08);
-  --shadow-sm: 0 1px 3px 0 rgba(15, 25, 50, 0.10), 0 1px 2px -1px rgba(15, 25, 50, 0.06);
-  --shadow: 0 4px 6px -1px rgba(15, 25, 50, 0.10), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(15, 25, 50, 0.10), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(15, 25, 50, 0.10), 0 4px 6px -4px rgba(15, 25, 50, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(15, 25, 50, 0.10), 0 8px 10px -6px rgba(15, 25, 50, 0.05);
+  --shadow-sm:
+    0 1px 3px 0 rgba(15, 25, 50, 0.1), 0 1px 2px -1px rgba(15, 25, 50, 0.06);
+  --shadow:
+    0 4px 6px -1px rgba(15, 25, 50, 0.1), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
+  --shadow-md:
+    0 4px 6px -1px rgba(15, 25, 50, 0.1), 0 2px 4px -2px rgba(15, 25, 50, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(15, 25, 50, 0.1),
+    0 4px 6px -4px rgba(15, 25, 50, 0.05);
+  --shadow-xl:
+    0 20px 25px -5px rgba(15, 25, 50, 0.1),
+    0 8px 10px -6px rgba(15, 25, 50, 0.05);
   --shadow-2xl: 0 25px 50px -12px rgba(15, 25, 50, 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-primary-border: hsl(
+    from hsl(var(--sidebar-primary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --sidebar-accent-border: hsl(var(--sidebar-accent));
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --sidebar-accent-border: hsl(
+    from hsl(var(--sidebar-accent)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --primary-border: hsl(var(--primary));
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --primary-border: hsl(
+    from hsl(var(--primary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --secondary-border: hsl(var(--secondary));
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --secondary-border: hsl(
+    from hsl(var(--secondary)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --muted-border: hsl(var(--muted));
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --muted-border: hsl(
+    from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) /
+      alpha
+  );
   --accent-border: hsl(var(--accent));
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --accent-border: hsl(
+    from hsl(var(--accent)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
   --destructive-border: hsl(var(--destructive));
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
+  --destructive-border: hsl(
+    from hsl(var(--destructive)) h s
+      calc(l + var(--opaque-button-border-intensity)) / alpha
+  );
 }
 
 /* DARK MODE - Deep navy academic theme */
 .dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.05);
   --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
 
   --background: 222 30% 9%;
   --foreground: 210 20% 90%;
@@ -186,11 +214,16 @@
 
   --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.4);
   --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.5);
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  --shadow-sm:
+    0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl:
+    0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
 }
 
@@ -219,8 +252,10 @@
     pointer-events: none;
   }
 
-  .no-default-hover-elevate {}
-  .no-default-active-elevate {}
+  .no-default-hover-elevate {
+  }
+  .no-default-active-elevate {
+  }
 
   .toggle-elevate::before,
   .toggle-elevate-2::before {
@@ -281,5 +316,203 @@
   .ghost-text {
     color: hsl(var(--muted-foreground) / 0.5);
     font-style: italic;
+  }
+
+  .toolbar-surface {
+    background: hsl(var(--card));
+    border-bottom: 1px solid hsl(var(--border));
+  }
+}
+
+.pages-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem 0;
+}
+
+.paper-page {
+  width: 816px;
+  min-height: 1056px;
+  background: #fff;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+  border-radius: 2px;
+  position: relative;
+  padding: 96px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.paper-page .page-number {
+  position: absolute;
+  bottom: 36px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-family: var(--app-font-sans);
+  pointer-events: none;
+  user-select: none;
+}
+
+[data-type="page-break"] {
+  border-top: 2px dashed #d1d5db;
+  position: relative;
+  margin: 1.5rem 0;
+}
+
+[data-type="page-break"]::after {
+  content: "PAGE BREAK";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #f3f4f6;
+  padding: 0 0.5rem;
+  font-size: 0.65rem;
+  color: #9ca3af;
+  font-family: var(--app-font-sans);
+  letter-spacing: 0.05em;
+}
+
+.paper-view [data-type="page-break"] {
+  display: none;
+}
+
+.paper-view {
+  background: #fff !important;
+  color: #1a1a1a !important;
+}
+
+.paper-view h1 {
+  font-size: 1.875rem !important;
+  font-weight: 700 !important;
+  margin-top: 2rem !important;
+  margin-bottom: 1rem !important;
+  line-height: 1.2 !important;
+}
+
+.paper-view h2 {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+  line-height: 1.3 !important;
+}
+
+.paper-view h3 {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  margin-top: 1.25rem !important;
+  margin-bottom: 0.5rem !important;
+  line-height: 1.4 !important;
+}
+
+.paper-view p {
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+  line-height: 1.75 !important;
+}
+
+.paper-view ul {
+  list-style-type: disc !important;
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.paper-view ol {
+  list-style-type: decimal !important;
+  padding-left: 1.5rem !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.5rem !important;
+}
+
+.paper-view li {
+  margin-top: 0.25rem !important;
+  margin-bottom: 0.25rem !important;
+  line-height: 1.75 !important;
+}
+
+.paper-view blockquote {
+  border-left: 3px solid #d1d5db !important;
+  padding-left: 1rem !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+  color: #4b5563 !important;
+  font-style: italic !important;
+}
+
+.paper-view strong {
+  font-weight: 700 !important;
+}
+
+.paper-view em {
+  font-style: italic !important;
+}
+
+.paper-view u {
+  text-decoration: underline !important;
+}
+
+.paper-view a {
+  color: #2563eb !important;
+  text-decoration: underline !important;
+}
+
+.paper-view code {
+  background: #f3f4f6 !important;
+  padding: 0.125rem 0.375rem !important;
+  border-radius: 0.25rem !important;
+  font-family: var(--app-font-mono), monospace !important;
+  font-size: 0.875em !important;
+}
+
+.paper-view pre {
+  background: #f3f4f6 !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 0.375rem !important;
+  overflow-x: auto !important;
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.paper-view pre code {
+  background: none !important;
+  padding: 0 !important;
+  font-size: 0.875rem !important;
+  line-height: 1.5 !important;
+}
+
+.paper-view hr {
+  border-top: 1px solid #d1d5db !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 1.5rem !important;
+}
+
+.paper-view img {
+  max-width: 100% !important;
+  margin-top: 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+@media print {
+  .pages-container {
+    gap: 0;
+    padding: 0;
+  }
+
+  .paper-page {
+    box-shadow: none;
+    width: 100%;
+    break-after: page;
+  }
+
+  .paper-page .page-number {
+    position: static;
   }
 }
