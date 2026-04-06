@@ -45,7 +45,7 @@ graph TB
 ## Monorepo Structure
 
 ```
-Jenny-AI-Clone/
+Jenni-AI-Clone/
 ├── artifacts/
 │   ├── api-server/              # Express 5 backend
 │   ├── openjenni/               # React + Vite frontend

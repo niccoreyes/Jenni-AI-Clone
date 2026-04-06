@@ -1,4 +1,4 @@
-# Dockerfile for the Jenny AI Clone monorepo API server
+# Dockerfile for the Jenni AI Clone monorepo API server
 FROM node:20-slim
 
 WORKDIR /app

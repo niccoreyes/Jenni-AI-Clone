@@ -1,6 +1,7 @@
-# Jenny AI Clone
+# Jenni AI Clone
 
-Monorepo for the Jenny AI Clone project. This repository currently includes:
+Monorepo for the Jenni AI Clone project. This repository currently includes:
+
 - `artifacts/api-server`: backend API server built with Express, Drizzle ORM, and TypeScript
 - `lib`: shared workspace packages used by the server and other packages
 - `scripts`: workspace tooling and utilities
@@ -39,6 +40,7 @@ Start all services with a single command:
 ```
 
 This script automatically:
+
 - Checks and installs missing dependencies
 - Starts PostgreSQL in Docker
 - Starts the API server with hot-reload
@@ -46,9 +48,10 @@ This script automatically:
 - Shows service URLs and maintains persistent database
 
 **Services available at:**
+
 - Frontend: http://localhost:3000
 - API Server: http://localhost:3001
-- Database: postgresql://postgres:postgres@localhost:5432/jenny_ai_clone
+- Database: postgresql://postgres:postgres@localhost:5432/jenni_ai_clone
 
 Press **Ctrl+C** to stop all services (PostgreSQL will continue running for data persistence).
 
@@ -61,6 +64,7 @@ To stop all development services:
 ```
 
 This script:
+
 - Stops the frontend and API server processes
 - Stops Docker containers
 - Preserves PostgreSQL data in the Docker volume
@@ -70,13 +74,15 @@ This script:
 If you prefer to run services manually:
 
 1. **Start PostgreSQL in Docker:**
+
    ```bash
    docker compose up postgres -d
    ```
 
 2. **Start API Server** (in a new terminal):
+
    ```bash
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone" \
+   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenni_ai_clone" \
    PORT=3001 \
    pnpm --filter @workspace/api-server dev
    ```
@@ -148,6 +154,7 @@ Run a single command to start everything:
 ```
 
 This script automatically:
+
 - Checks Docker is running
 - Starts PostgreSQL in Docker with persistent volume
 - Waits for PostgreSQL to be ready
@@ -166,12 +173,12 @@ If you prefer to run services manually:
 docker compose up postgres -d
 ```
 
-This starts a PostgreSQL 15 database accessible at `postgresql://postgres:postgres@localhost:5432/jenny_ai_clone` with persistent data storage.
+This starts a PostgreSQL 15 database accessible at `postgresql://postgres:postgres@localhost:5432/jenni_ai_clone` with persistent data storage.
 
 2. In a new terminal, run the API server (applies database schema and starts the server):
 
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenny_ai_clone" pnpm --filter @workspace/api-server dev
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/jenni_ai_clone" pnpm --filter @workspace/api-server dev
 ```
 
 3. In another terminal, run the frontend:
@@ -198,13 +205,15 @@ docker compose up --build
 ```
 
 This starts:
+
 - **frontend** at `http://localhost:3000` (port 3000)
 - **api-server** at `http://localhost:3001` (port 3001)
 - **postgres** database at `localhost:5432`
 
 The services are configured as follows:
+
 - Frontend proxies `/api` requests to the backend at `http://api-server:3001`
-- API server connects to PostgreSQL via `postgresql://postgres:postgres@postgres:5432/jenny_ai_clone`
+- API server connects to PostgreSQL via `postgresql://postgres:postgres@postgres:5432/jenni_ai_clone`
 - PostgreSQL data persists in the named volume `postgres_data`
 
 #### Single Service Builds
@@ -213,10 +222,10 @@ To build individual images:
 
 ```bash
 # API server only
-docker build -t jenny-ai-clone-api .
+docker build -t jenni-ai-clone-api .
 
 # Frontend only
-docker build -t jenny-ai-clone-frontend -f Dockerfile.frontend .
+docker build -t jenni-ai-clone-frontend -f Dockerfile.frontend .
 ```
 
 #### Run Individual Containers
@@ -225,13 +234,13 @@ docker build -t jenny-ai-clone-frontend -f Dockerfile.frontend .
 # API server with local PostgreSQL
 docker run --rm -p 3001:3001 \
   -e PORT=3001 \
-  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/jenny_ai_clone \
-  jenny-ai-clone-api
+  -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5432/jenni_ai_clone \
+  jenni-ai-clone-api
 
 # Frontend with local API server
 docker run --rm -p 3000:3000 \
   -e API_SERVER=http://localhost:3001 \
-  jenny-ai-clone-frontend
+  jenni-ai-clone-frontend
 ```
 
 ### Database Persistence
@@ -243,10 +252,10 @@ The Docker PostgreSQL service automatically creates and maintains a named volume
 docker volume ls | grep postgres_data
 
 # Inspect volume
-docker volume inspect jenny-ai-clone_postgres_data
+docker volume inspect jenni-ai-clone_postgres_data
 
 # Remove volume (WARNING: deletes all data)
-docker volume rm jenny-ai-clone_postgres_data
+docker volume rm jenni-ai-clone_postgres_data
 ```
 
 #### Stop and Restart Containers
