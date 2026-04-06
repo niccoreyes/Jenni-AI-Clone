@@ -125,7 +125,7 @@ lsof -ti:3000,3001 2>/dev/null | xargs kill -9 2>/dev/null || true
 sleep 1
 
 # Check if postgres container is already running
-if docker ps --format '{{.Names}}' | grep -q 'jenni-ai-clone-postgres-1'; then
+if docker ps --format '{{.Names}}' | grep -q 'jenny-ai-clone-postgres-1'; then
   echo -e "${GREEN}✓ PostgreSQL container already running${NC}"
 else
   echo -e "${YELLOW}Starting PostgreSQL in Docker...${NC}"
