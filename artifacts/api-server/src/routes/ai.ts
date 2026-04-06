@@ -81,7 +81,9 @@ async function callOpenAICompat(
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          ...(apiKey && provider !== "ollama"
+            ? { Authorization: `Bearer ${apiKey}` }
+            : {}),
         },
         body: JSON.stringify({
           model,
