@@ -10,7 +10,12 @@ import {
   GenerateOutlineResponse,
 } from "@workspace/api-zod";
 import { db, settingsTable } from "@workspace/db";
-import { streamText, pipeTextStreamToResponse, type LanguageModel } from "ai";
+import {
+  streamText,
+  pipeTextStreamToResponse,
+  pipeUIMessageStreamToResponse,
+  type LanguageModel,
+} from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 
@@ -289,7 +294,10 @@ router.post("/ai/autocomplete/stream", async (req, res): Promise<void> => {
 
   try {
     // Ollama doesn't require an API key
-    if (!configuredSettings.apiKey && configuredSettings.provider !== "ollama") {
+    if (
+      !configuredSettings.apiKey &&
+      configuredSettings.provider !== "ollama"
+    ) {
       res.status(400).json({ error: "API key not configured" });
       return;
     }
@@ -394,7 +402,15 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
 
   let response = "";
   if (apiKey || provider === "ollama") {
-    response = await callOpenAICompat(endpoint, apiKey, model, messages, 0.7, 3, provider);
+    response = await callOpenAICompat(
+      endpoint,
+      apiKey,
+      model,
+      messages,
+      0.7,
+      3,
+      provider,
+    );
   } else {
     response =
       "To use the AI chat feature, please configure your API key in Settings. I can help you analyze your document, find research gaps, generate outlines, and suggest citations once connected.";
@@ -420,7 +436,10 @@ router.post("/ai/chat/stream", async (req, res): Promise<void> => {
 
   try {
     // Ollama doesn't require an API key
-    if (!configuredSettings.apiKey && configuredSettings.provider !== "ollama") {
+    if (
+      !configuredSettings.apiKey &&
+      configuredSettings.provider !== "ollama"
+    ) {
       res.status(400).json({ error: "API key not configured" });
       return;
     }
@@ -448,9 +467,9 @@ router.post("/ai/chat/stream", async (req, res): Promise<void> => {
       maxTokens: 4096,
     } as any);
 
-    pipeTextStreamToResponse({
+    pipeUIMessageStreamToResponse({
       response: res,
-      textStream: result.textStream,
+      stream: result.toUIMessageStream(),
     });
   } catch (error) {
     console.error("Chat streaming error:", error);

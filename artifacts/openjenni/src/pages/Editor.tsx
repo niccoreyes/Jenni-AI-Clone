@@ -310,6 +310,41 @@ export default function Editor() {
   if (!chatTransportRef.current) {
     chatTransportRef.current = new DefaultChatTransport({
       api: `/api/ai/chat/stream`,
+      prepareSendMessagesRequest: ({ messages }) => {
+        const lastMessage = messages[messages.length - 1];
+        const textContent =
+          typeof lastMessage.content === "string"
+            ? lastMessage.content
+            : Array.isArray(lastMessage.content)
+              ? lastMessage.content
+                  .filter((p: any) => p && p.type === "text")
+                  .map((p: any) => p.text || "")
+                  .join("")
+              : "";
+        const historyMessages = messages
+          .slice(0, -1)
+          .slice(-6)
+          .map((m: any) => {
+            let content = "";
+            if (typeof m.content === "string") {
+              content = m.content;
+            } else if (Array.isArray(m.content)) {
+              content = m.content
+                .filter((p: any) => p && p.type === "text")
+                .map((p: any) => p.text || "")
+                .join("");
+            }
+            return { role: m.role, content };
+          });
+        return {
+          body: {
+            message: textContent,
+            documentId: docId,
+            documentContext: plainTextRef.current.slice(-500),
+            history: historyMessages,
+          },
+        };
+      },
     });
   }
   const {
@@ -849,42 +884,22 @@ export default function Editor() {
                 {activeTab === "chat" && (
                   <AiChatPanel
                     messages={chatMessages.map((msg) => {
-                      const textContent =
-                        typeof msg.content === "string"
-                          ? msg.content
-                          : msg.content
-                              .filter((part: any) => part.type === "text")
-                              .map((part: any) => part.text)
-                              .join("");
+                      let textContent = "";
+                      if (typeof msg.content === "string") {
+                        textContent = msg.content;
+                      } else if (Array.isArray(msg.content)) {
+                        textContent = msg.content
+                          .filter((part: any) => part && part.type === "text")
+                          .map((part: any) => part.text || "")
+                          .join("");
+                      }
                       return {
                         role: msg.role as "user" | "assistant",
                         content: textContent,
                       };
                     })}
                     onSendMessage={(msg) => {
-                      const context = plainTextRef.current.slice(-500);
-                      const historyMessages = chatMessages
-                        .slice(-6)
-                        .map((m: any) => ({
-                          role: m.role,
-                          content:
-                            typeof m.content === "string"
-                              ? m.content
-                              : m.content
-                                  .filter((p: any) => p.type === "text")
-                                  .map((p: any) => p.text)
-                                  .join(""),
-                        }));
-                      sendMessage(
-                        { text: msg },
-                        {
-                          body: {
-                            documentId: docId,
-                            documentContext: context,
-                            history: historyMessages,
-                          },
-                        },
-                      );
+                      sendMessage({ text: msg });
                     }}
                     isTyping={isChatLoading}
                   />

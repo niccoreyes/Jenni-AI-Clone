@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, BookOpen, FileText, Lightbulb, ListChecks } from "lucide-react";
+import {
+  Send,
+  Sparkles,
+  BookOpen,
+  FileText,
+  Lightbulb,
+  ListChecks,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
@@ -12,13 +19,33 @@ interface AiChatPanelProps {
 }
 
 const QUICK_ACTIONS = [
-  { icon: BookOpen, label: "Summarize", prompt: "Summarize the key findings from my document" },
-  { icon: ListChecks, label: "Find gaps", prompt: "Identify gaps in my literature review" },
-  { icon: Lightbulb, label: "Suggest sources", prompt: "Suggest additional sources for my argument" },
-  { icon: FileText, label: "Check claims", prompt: "Flag any unsupported claims in my current text" },
+  {
+    icon: BookOpen,
+    label: "Summarize",
+    prompt: "Summarize the key findings from my document",
+  },
+  {
+    icon: ListChecks,
+    label: "Find gaps",
+    prompt: "Identify gaps in my literature review",
+  },
+  {
+    icon: Lightbulb,
+    label: "Suggest sources",
+    prompt: "Suggest additional sources for my argument",
+  },
+  {
+    icon: FileText,
+    label: "Check claims",
+    prompt: "Flag any unsupported claims in my current text",
+  },
 ];
 
-export default function AiChatPanel({ messages, onSendMessage, isTyping }: AiChatPanelProps) {
+export default function AiChatPanel({
+  messages,
+  onSendMessage,
+  isTyping,
+}: AiChatPanelProps) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,15 +63,23 @@ export default function AiChatPanel({ messages, onSendMessage, isTyping }: AiCha
     onSendMessage(prompt);
   };
 
+  const lastMessage = messages[messages.length - 1];
+  const hasStreamingAssistant =
+    isTyping && lastMessage?.role === "assistant" && lastMessage.content;
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
-          <h3 className="text-sm font-semibold text-foreground">Research Assistant</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Research Assistant
+          </h3>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">Context-aware AI chat</p>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Context-aware AI chat
+        </p>
       </div>
 
       {/* Quick Actions */}
@@ -65,7 +100,7 @@ export default function AiChatPanel({ messages, onSendMessage, isTyping }: AiCha
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
         <AnimatePresence mode="popLayout">
-          {messages.length === 0 && (
+          {messages.length === 0 && !isTyping && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -74,47 +109,91 @@ export default function AiChatPanel({ messages, onSendMessage, isTyping }: AiCha
               Ask anything about your document or research topic.
             </motion.div>
           )}
-          {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed ${
-                  msg.role === "user"
-                    ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm"
-                    : "bg-muted text-foreground rounded-2xl rounded-bl-sm border border-border"
-                }`}
+          {messages.map((msg, i) => {
+            const isLastAssistant =
+              i === messages.length - 1 && msg.role === "assistant";
+            const isStreaming = isLastAssistant && isTyping;
+            return (
+              <motion.div
+                key={`${msg.role}-${i}`}
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
               >
-                {msg.role === "assistant" ? (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      components={{
-                        p: ({ children }: { children?: React.ReactNode }) => <p className="mb-2 last:mb-0">{children}</p>,
-                        ul: ({ children }: { children?: React.ReactNode }) => <ul className="list-disc pl-4 mb-2 last:mb-0">{children}</ul>,
-                        ol: ({ children }: { children?: React.ReactNode }) => <ol className="list-decimal pl-4 mb-2 last:mb-0">{children}</ol>,
-                        li: ({ children }: { children?: React.ReactNode }) => <li className="mb-1 last:mb-0">{children}</li>,
-                        strong: ({ children }: { children?: React.ReactNode }) => <strong className="font-semibold">{children}</strong>,
-                        code: ({ children }: { children?: React.ReactNode }) => (
-                          <code className="bg-muted-foreground/20 px-1 py-0.5 rounded text-xs">{children}</code>
-                        ),
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </motion.div>
-          ))}
+                <div
+                  className={`max-w-[85%] px-3.5 py-2.5 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-primary text-primary-foreground rounded-2xl rounded-br-sm"
+                      : "bg-muted text-foreground rounded-2xl rounded-bl-sm border border-border"
+                  }`}
+                >
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        components={{
+                          p: ({ children }: { children?: React.ReactNode }) => (
+                            <p className="mb-2 last:mb-0">{children}</p>
+                          ),
+                          ul: ({
+                            children,
+                          }: {
+                            children?: React.ReactNode;
+                          }) => (
+                            <ul className="list-disc pl-4 mb-2 last:mb-0">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({
+                            children,
+                          }: {
+                            children?: React.ReactNode;
+                          }) => (
+                            <ol className="list-decimal pl-4 mb-2 last:mb-0">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({
+                            children,
+                          }: {
+                            children?: React.ReactNode;
+                          }) => <li className="mb-1 last:mb-0">{children}</li>,
+                          strong: ({
+                            children,
+                          }: {
+                            children?: React.ReactNode;
+                          }) => (
+                            <strong className="font-semibold">
+                              {children}
+                            </strong>
+                          ),
+                          code: ({
+                            children,
+                          }: {
+                            children?: React.ReactNode;
+                          }) => (
+                            <code className="bg-muted-foreground/20 px-1 py-0.5 rounded text-xs">
+                              {children}
+                            </code>
+                          ),
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                      {isStreaming && (
+                        <span className="inline-block w-1.5 h-4 ml-0.5 bg-primary/60 animate-pulse align-middle" />
+                      )}
+                    </div>
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
 
-        {isTyping && (
+        {isTyping && !hasStreamingAssistant && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
