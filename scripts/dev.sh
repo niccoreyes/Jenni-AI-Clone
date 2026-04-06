@@ -198,12 +198,7 @@ trap "rm -rf $TEMP_DIR" EXIT
 cleanup() {
   echo ""
   echo -e "${YELLOW}Shutting down development servers...${NC}"
-  if [ ! -z "$API_PID" ]; then
-    kill $API_PID 2>/dev/null || true
-  fi
-  if [ ! -z "$FRONTEND_PID" ]; then
-    kill $FRONTEND_PID 2>/dev/null || true
-  fi
+  pkill -INT -P $$ 2>/dev/null || true
   echo -e "${GREEN}✓ Development servers stopped${NC}"
   echo -e "${YELLOW}PostgreSQL container is still running (docker compose stop postgres to stop it)${NC}"
 }
